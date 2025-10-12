@@ -59,7 +59,28 @@
     <label>حجم:</label> <input type="range" id="size" min="1" max="50" value="4">
     <button id="undo">↩️ تراجع</button>
     <button id="clear">🗑️ مسح</button>
-    <button id="send">📤 إرسال للبوت</button>
+<button id="sendBtn">📤 إرسال إلى البوت</button>
+
+<script>
+const sendBtn = document.getElementById('sendBtn');
+sendBtn.addEventListener('click', () => {
+    try {
+        const canvas = document.getElementById('drawCanvas');
+        const dataURL = canvas.toDataURL("image/png");
+        if (window.Telegram && Telegram.WebApp) {
+            Telegram.WebApp.sendData(JSON.stringify({
+                type: "drawing",
+                data: dataURL
+            }));
+            Telegram.WebApp.close(); // يُغلق الواجهة بعد الإرسال
+        } else {
+            alert("⚠️ افتح من داخل تيليجرام لتجربة الإرسال الفعلي.");
+        }
+    } catch (err) {
+        alert("حدث خطأ أثناء التحويل: " + err);
+    }
+});
+</script>
   </div>
   <canvas id="canvas"></canvas>
 
@@ -151,19 +172,20 @@ document.getElementById('size').addEventListener('input', e => size = e.target.v
 document.getElementById('clear').addEventListener('click', () => { paths = []; redraw(); });
 document.getElementById('undo').addEventListener('click', () => { paths.pop(); redraw(); });
 
-// زر الإرسال للبوت
-document.getElementById('send').addEventListener('click', () => {
-  if (paths.length === 0) return alert('🎨 اللوحة فارغة!');
-  const dataUrl = canvas.toDataURL('image/png');
-  const payload = JSON.stringify({ type: 'drawing', data: dataUrl, timestamp: Date.now() });
+// // زر الإرسال للبوت
+// document.getElementById('send').addEventListener('click', () => {
+//   if (paths.length === 0) return alert('🎨 اللوحة فارغة!');
+//   const dataUrl = canvas.toDataURL('image/png');
+//   const payload = JSON.stringify({ type: 'drawing', data: dataUrl, timestamp: Date.now() });
 
-  if (isTelegram) {
-    Telegram.WebApp.sendData(payload);
-    Telegram.WebApp.close(); // يغلق النافذة بعد الإرسال
-  } else {
-    alert('🚫 افتح هذه الصفحة من داخل تيليجرام لتجربة الإرسال.');
-  }
-});
+//   if (isTelegram) {
+//     Telegram.WebApp.sendData(payload);
+//     Telegram.WebApp.close(); // يغلق النافذة بعد الإرسال
+//   } else {
+//     alert('🚫 افتح هذه الصفحة من داخل تيليجرام لتجربة الإرسال.');
+//   }
+// });
 </script>
 </body>
 </html>
+
