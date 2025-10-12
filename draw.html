@@ -1,111 +1,186 @@
 <!DOCTYPE html>
-<html lang="ar">
+<html lang="ar" dir="rtl">
 <head>
-  <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>أداة الرسم في تيليجرام</title>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>🎨 أداة الرسم في تيليجرام</title>
   <style>
     body {
       margin: 0;
-      background: #222;
-      color: white;
+      background: #111;
+      color: #fff;
+      font-family: "Tajawal", sans-serif;
       display: flex;
       flex-direction: column;
-      align-items: center;
       height: 100vh;
-      font-family: sans-serif;
+      overflow: hidden;
     }
-    #toolbar {
-      background: #333;
+    header {
+      background: #1e1e1e;
       padding: 10px;
-      width: 100%;
+      text-align: center;
+      font-weight: bold;
+      border-bottom: 1px solid #333;
+    }
+    canvas {
+      flex: 1;
+      background: #fff;
+      cursor: crosshair;
+      touch-action: none;
+    }
+    .controls {
+      background: #1e1e1e;
+      padding: 10px;
       display: flex;
-      justify-content: center;
+      justify-content: space-around;
       align-items: center;
       gap: 10px;
     }
-    #canvas {
-      background: #fff;
-      flex: 1;
-      width: 100%;
-      cursor: crosshair;
+    input[type="color"],
+    input[type="range"],
+    button {
+      cursor: pointer;
     }
     button {
-      background: #0088cc;
-      color: white;
+      background: #00a884;
+      color: #fff;
       border: none;
-      padding: 8px 12px;
-      border-radius: 5px;
-      cursor: pointer;
+      border-radius: 10px;
+      padding: 8px 14px;
       font-size: 14px;
+      transition: 0.3s;
     }
-    button.red { background: #e74c3c; }
+    button:hover {
+      opacity: 0.85;
+    }
+    .danger {
+      background: #d9534f;
+    }
+    .secondary {
+      background: #444;
+    }
   </style>
 </head>
 <body>
-  <div id="toolbar">
-    <label>لون: <input type="color" id="color" value="#000000"></label>
-    <label>حجم: <input type="range" id="size" min="1" max="20" value="4"></label>
-    <button id="clear" class="red">مسح</button>
-    <button id="send">إرسال للبوت</button>
-  </div>
+  <header>🎨 أداة الرسم في تيليجرام</header>
   <canvas id="canvas"></canvas>
 
+  <div class="controls">
+    <label>لون:
+      <input type="color" id="color" value="#ff0000">
+    </label>
+    <label>حجم:
+      <input type="range" id="size" min="1" max="20" value="4">
+    </label>
+    <button id="undo" class="secondary">↩️ تراجع</button>
+    <button id="clear" class="danger">🗑️ مسح</button>
+    <button id="send">📤 إرسال للرّوب</button>
+  </div>
+
   <script>
-    const tg = window.Telegram.WebApp;
-    const canvas = document.getElementById('canvas');
-    const ctx = canvas.getContext('2d');
-    const colorInput = document.getElementById('color');
-    const sizeInput = document.getElementById('size');
-    const clearBtn = document.getElementById('clear');
-    const sendBtn = document.getElementById('send');
-
-    // تهيئة حجم الكانفس
-    function resizeCanvas() {
-      canvas.width = window.innerWidth;
-      canvas.height = window.innerHeight - 60;
+    // ===============================
+    // 🎯 التحقق من تشغيل داخل تيليجرام
+    // ===============================
+    const tg = window.Telegram?.WebApp;
+    if (!tg) {
+      alert("⚠️ افتح هذه الصفحة من داخل تطبيق تيليجرام لتجربة الإرسال.");
+    } else {
+      tg.expand();
     }
-    window.addEventListener('resize', resizeCanvas);
-    resizeCanvas();
 
-    // إعداد الرسم
+    // ===============================
+    // ✏️ منطق الرسم على Canvas
+    // ===============================
+    const canvas = document.getElementById("canvas");
+    const ctx = canvas.getContext("2d");
+    const colorPicker = document.getElementById("color");
+    const sizePicker = document.getElementById("size");
+    const clearBtn = document.getElementById("clear");
+    const sendBtn = document.getElementById("send");
+    const undoBtn = document.getElementById("undo");
+
     let drawing = false;
-    function startDraw(e) {
+    let paths = [];
+    let currentPath = [];
+
+    function resizeCanvas() {
+      const temp = document.createElement("canvas");
+      temp.width = canvas.width;
+      temp.height = canvas.height;
+      temp.getContext("2d").drawImage(canvas, 0, 0);
+      canvas.width = window.innerWidth;
+      canvas.height = window.innerHeight - 120;
+      ctx.drawImage(temp, 0, 0);
+    }
+    resizeCanvas();
+    window.addEventListener("resize", resizeCanvas);
+
+    canvas.addEventListener("pointerdown", (e) => {
       drawing = true;
       ctx.beginPath();
       ctx.moveTo(e.offsetX, e.offsetY);
-    }
-    function draw(e) {
+      currentPath = [{ x: e.offsetX, y: e.offsetY, color: colorPicker.value, size: sizePicker.value }];
+    });
+
+    canvas.addEventListener("pointermove", (e) => {
       if (!drawing) return;
       ctx.lineTo(e.offsetX, e.offsetY);
-      ctx.strokeStyle = colorInput.value;
-      ctx.lineWidth = sizeInput.value;
-      ctx.lineCap = 'round';
+      ctx.strokeStyle = colorPicker.value;
+      ctx.lineWidth = sizePicker.value;
+      ctx.lineCap = "round";
+      ctx.lineJoin = "round";
       ctx.stroke();
-    }
-    function endDraw() {
-      drawing = false;
-      ctx.closePath();
-    }
+      currentPath.push({ x: e.offsetX, y: e.offsetY });
+    });
 
-    canvas.addEventListener('mousedown', startDraw);
-    canvas.addEventListener('mousemove', draw);
-    canvas.addEventListener('mouseup', endDraw);
-    canvas.addEventListener('mouseleave', endDraw);
-
-    clearBtn.onclick = () => ctx.clearRect(0, 0, canvas.width, canvas.height);
-
-    sendBtn.onclick = () => {
-      const dataUrl = canvas.toDataURL('image/png');
-      if (tg && tg.sendData) {
-        tg.sendData(JSON.stringify({ type: 'drawing', data: dataUrl }));
-        tg.close(); // يغلق الواجهة بعد الإرسال
-      } else {
-        alert('⚠️ افتح هذه الصفحة من داخل تيليجرام لتجربة الإرسال');
+    canvas.addEventListener("pointerup", () => {
+      if (drawing) {
+        drawing = false;
+        paths.push(currentPath);
       }
-    };
+    });
 
-    tg.expand(); // لتوسيع الواجهة داخل تيليجرام
+    clearBtn.addEventListener("click", () => {
+      ctx.clearRect(0, 0, canvas.width, canvas.height);
+      paths = [];
+    });
+
+    undoBtn.addEventListener("click", () => {
+      if (paths.length === 0) return;
+      paths.pop();
+      ctx.clearRect(0, 0, canvas.width, canvas.height);
+      for (const path of paths) {
+        ctx.beginPath();
+        ctx.moveTo(path[0].x, path[0].y);
+        for (const point of path) {
+          ctx.lineTo(point.x, point.y);
+          ctx.strokeStyle = path[0].color;
+          ctx.lineWidth = path[0].size;
+          ctx.lineCap = "round";
+          ctx.lineJoin = "round";
+          ctx.stroke();
+        }
+      }
+    });
+
+    // ===============================
+    // 🚀 إرسال الصورة للبوت
+    // ===============================
+    sendBtn.addEventListener("click", () => {
+      const dataURL = canvas.toDataURL("image/png");
+      const payload = {
+        type: "drawing",
+        data: dataURL,
+        timestamp: Date.now(),
+      };
+
+      if (tg) {
+        tg.sendData(JSON.stringify(payload));
+        tg.close();
+      } else {
+        alert("⚠️ لا يمكن الإرسال إلا من داخل تطبيق تيليجرام.");
+      }
+    });
   </script>
 </body>
 </html>
