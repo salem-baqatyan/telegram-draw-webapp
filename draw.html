@@ -1,241 +1,169 @@
-<!doctype html>
+<!DOCTYPE html>
 <html lang="ar">
 <head>
-  <meta charset="utf-8" />
-  <meta name="viewport" content="width=device-width,initial-scale=1" />
-  <title>Telegram WebApp - Drawer</title>
-  <style>
-    :root{--bg:#0f1724;--panel:#0b1220;--accent:#06b6d4;--muted:#9ca3af}
-    html,body{height:100%;margin:0;font-family:Segoe UI,Roboto,Helvetica,Arial,sans-serif;background:linear-gradient(180deg,#071022 0%, #071827 100%);color:#e6eef6}
-    .app{max-width:900px;margin:18px auto;padding:12px;border-radius:12px;background:var(--panel);box-shadow:0 6px 30px rgba(2,6,23,.6)}
-    header{display:flex;gap:12px;align-items:center}
-    header h1{font-size:18px;margin:0}
-    .controls{display:flex;gap:8px;flex-wrap:wrap;margin-top:10px}
-    button{background:none;border:1px solid rgba(255,255,255,.06);padding:8px 12px;border-radius:10px;color:inherit;cursor:pointer}
-    button.primary{background:var(--accent);color:#012; border:0}
-    #canvasWrap{margin-top:12px;border-radius:8px;overflow:hidden;background:#fff}
-    canvas{display:block;width:100%;height:480px;background:#fff;touch-action:none}
-    .tools{display:flex;gap:8px;align-items:center}
-    select,input[type=range]{appearance:none;padding:6px;border-radius:8px;background:rgba(255,255,255,.03);color:inherit;border:1px solid rgba(255,255,255,.04)}
-    footer{display:flex;justify-content:space-between;align-items:center;margin-top:12px}
-    .muted{color:var(--muted);font-size:13px}
-    @media (max-width:600px){canvas{height:360px}}
-  </style>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>أداة الرسم في تيليجرام</title>
+<style>
+  body {
+    margin: 0;
+    font-family: system-ui, sans-serif;
+    background: #0d1117;
+    color: #fff;
+    display: flex;
+    flex-direction: column;
+    height: 100vh;
+  }
+  header {
+    padding: 10px;
+    background: #161b22;
+    text-align: center;
+  }
+  #toolbar {
+    display: flex;
+    gap: 8px;
+    justify-content: center;
+    align-items: center;
+    background: #161b22;
+    padding: 8px;
+    flex-wrap: wrap;
+  }
+  button, input[type=color], input[type=range] {
+    border: none;
+    border-radius: 8px;
+    padding: 8px;
+    font-size: 14px;
+    cursor: pointer;
+  }
+  button {
+    background: #238636;
+    color: white;
+  }
+  #clear, #undo {
+    background: #d73a49;
+  }
+  canvas {
+    flex: 1;
+    touch-action: none;
+    background: #fff;
+    display: block;
+    width: 100%;
+    height: 100%;
+  }
+</style>
 </head>
 <body>
-  <div class="app">
-    <header>
-      <h1>محرر الرسم - Telegram WebApp</h1>
-      <div style="margin-left:auto" class="muted">اضغط إرسال لإرسال الصورة لبوت التيليجرام</div>
-    </header>
-
-    <div class="controls">
-      <div class="tools">
-        <label for="color">اللون</label>
-        <input id="color" type="color" value="#000000" />
-        <label for="size">الحجم</label>
-        <input id="size" type="range" min="1" max="60" value="4" />
-        <button id="eraser">ممحاة</button>
-        <button id="undo">تراجع</button>
-        <button id="clear">مسح</button>
-      </div>
-      <div style="margin-left:auto;display:flex;gap:8px">
-        <button id="download">تحميل</button>
-        <button id="send" class="primary">إرسال للبوت</button>
-      </div>
-    </div>
-
-    <div id="canvasWrap">
-      <canvas id="board" width="1200" height="720"></canvas>
-    </div>
-
-    <footer>
-      <div class="muted">سهل — لمس/فأرة للرسم — يعمل على متصفحات حديثة</div>
-      <div class="muted">حجم اللوحة: <span id="sizeLabel">4</span></div>
-    </footer>
+  <header>🎨 أداة الرسم في تيليجرام</header>
+  <div id="toolbar">
+    <label>لون:</label> <input type="color" id="color" value="#000000">
+    <label>حجم:</label> <input type="range" id="size" min="1" max="50" value="4">
+    <button id="undo">↩️ تراجع</button>
+    <button id="clear">🗑️ مسح</button>
+    <button id="send">📤 إرسال للبوت</button>
   </div>
+  <canvas id="canvas"></canvas>
 
-  <script>
-    // ======= Telegram WebApp init (if opened from Telegram) =======
-    const isTelegram = typeof window.Telegram !== 'undefined' && !!window.Telegram.WebApp;
-    if (isTelegram) {
-      window.Telegram.WebApp.init();
-      // Expand to full height inside Telegram
-      try { window.Telegram.WebApp.expand(); } catch(e){}
+<script>
+const canvas = document.getElementById('canvas');
+const ctx = canvas.getContext('2d');
+let drawing = false;
+let paths = [];
+let currentPath = [];
+let color = document.getElementById('color').value;
+let size = document.getElementById('size').value;
+
+// 🔹 تهيئة Telegram WebApp
+const isTelegram = window.Telegram && window.Telegram.WebApp;
+if (isTelegram) {
+  Telegram.WebApp.ready();
+  Telegram.WebApp.expand();
+}
+
+// ضبط حجم اللوحة تلقائيًا
+function resizeCanvas() {
+  canvas.width = window.innerWidth;
+  canvas.height = window.innerHeight - document.getElementById('toolbar').offsetHeight - 40;
+  redraw();
+}
+window.addEventListener('resize', resizeCanvas);
+resizeCanvas();
+
+// رسم الخطوط من التاريخ
+function redraw() {
+  ctx.clearRect(0, 0, canvas.width, canvas.height);
+  for (let path of paths) {
+    ctx.strokeStyle = path.color;
+    ctx.lineWidth = path.size;
+    ctx.lineCap = 'round';
+    ctx.lineJoin = 'round';
+    ctx.beginPath();
+    for (let i = 1; i < path.points.length; i++) {
+      const p1 = path.points[i - 1];
+      const p2 = path.points[i];
+      ctx.moveTo(p1.x, p1.y);
+      ctx.lineTo(p2.x, p2.y);
     }
+    ctx.stroke();
+  }
+}
 
-    // ======= Canvas drawing logic =======
-    const canvas = document.getElementById('board');
-    const ctx = canvas.getContext('2d', { alpha: true });
-    const colorInput = document.getElementById('color');
-    const sizeInput = document.getElementById('size');
-    const sizeLabel = document.getElementById('sizeLabel');
-    const eraserBtn = document.getElementById('eraser');
-    const clearBtn = document.getElementById('clear');
-    const undoBtn = document.getElementById('undo');
-    const downloadBtn = document.getElementById('download');
-    const sendBtn = document.getElementById('send');
+function startDraw(x, y) {
+  drawing = true;
+  currentPath = { color, size, points: [{ x, y }] };
+  paths.push(currentPath);
+}
+function draw(x, y) {
+  if (!drawing) return;
+  const p = currentPath.points;
+  p.push({ x, y });
+  ctx.strokeStyle = currentPath.color;
+  ctx.lineWidth = currentPath.size;
+  ctx.lineCap = 'round';
+  ctx.lineJoin = 'round';
+  ctx.beginPath();
+  const prev = p[p.length - 2];
+  ctx.moveTo(prev.x, prev.y);
+  ctx.lineTo(x, y);
+  ctx.stroke();
+}
+function endDraw() {
+  drawing = false;
+  currentPath = [];
+}
 
-    // make canvas resolution friendly
-    function fitToContainer() {
-      const ratio = window.devicePixelRatio || 1;
-      const width = canvas.clientWidth;
-      const height = Math.round(width * (3/5)); // keep aspect ratio
-      canvas.width = Math.round(width * ratio);
-      canvas.height = Math.round(height * ratio);
-      canvas.style.height = height + 'px';
-      ctx.scale(ratio, ratio);
-      redraw();
-    }
-    window.addEventListener('resize', fitToContainer);
-    fitToContainer();
+// 🎨 الأحداث (يعمل باللمس والفأرة)
+function getPos(e) {
+  const rect = canvas.getBoundingClientRect();
+  const touch = e.touches ? e.touches[0] : e;
+  return { x: touch.clientX - rect.left, y: touch.clientY - rect.top };
+}
+canvas.addEventListener('mousedown', e => startDraw(...Object.values(getPos(e))));
+canvas.addEventListener('mousemove', e => draw(...Object.values(getPos(e))));
+canvas.addEventListener('mouseup', endDraw);
+canvas.addEventListener('mouseleave', endDraw);
+canvas.addEventListener('touchstart', e => { e.preventDefault(); startDraw(...Object.values(getPos(e))); });
+canvas.addEventListener('touchmove', e => { e.preventDefault(); draw(...Object.values(getPos(e))); });
+canvas.addEventListener('touchend', endDraw);
 
-    // drawing state
-    let drawing = false;
-    let paths = []; // history of paths for undo
-    let currentPath = null;
-    let tool = 'pen';
+// أدوات التحكم
+document.getElementById('color').addEventListener('input', e => color = e.target.value);
+document.getElementById('size').addEventListener('input', e => size = e.target.value);
+document.getElementById('clear').addEventListener('click', () => { paths = []; redraw(); });
+document.getElementById('undo').addEventListener('click', () => { paths.pop(); redraw(); });
 
-    function start(x,y){
-      drawing=true;
-      currentPath = {tool, color: ctx.strokeStyle, size: ctx.lineWidth, points:[{x,y}]};
-      paths.push(currentPath);
-    }
-    function move(x,y){
-      if(!drawing) return;
-      const p = currentPath.points;
-      p.push({x,y});
-      drawPathSegment(currentPath);
-    }
-    function end(){ drawing=false; currentPath=null }
+// زر الإرسال للبوت
+document.getElementById('send').addEventListener('click', () => {
+  if (paths.length === 0) return alert('🎨 اللوحة فارغة!');
+  const dataUrl = canvas.toDataURL('image/png');
+  const payload = JSON.stringify({ type: 'drawing', data: dataUrl, timestamp: Date.now() });
 
-    function drawPathSegment(path){
-      const pts = path.points;
-      if(pts.length < 2) return;
-      ctx.lineJoin = 'round';
-      ctx.lineCap = 'round';
-      ctx.strokeStyle = path.tool === 'eraser' ? '#ffffff' : path.color;
-      ctx.globalCompositeOperation = path.tool === 'eraser' ? 'destination-out' : 'source-over';
-      ctx.lineWidth = path.size;
-
-      ctx.beginPath();
-      ctx.moveTo(pts[pts.length-2].x, pts[pts.length-2].y);
-      ctx.lineTo(pts[pts.length-1].x, pts[pts.length-1].y);
-      ctx.stroke();
-    }
-
-    // redraw from history (used after resize or undo)
-    function redraw(){
-      ctx.clearRect(0,0,canvas.width,canvas.height);
-      // When canvas scaled by ratio, width/height are in device px; draw using client coords
-      for(const p of paths){
-        if(!p.points || p.points.length < 2) continue;
-        ctx.lineJoin='round';ctx.lineCap='round';
-        ctx.strokeStyle = p.tool === 'eraser' ? '#ffffff' : p.color;
-        ctx.globalCompositeOperation = p.tool === 'eraser' ? 'destination-out' : 'source-over';
-        ctx.lineWidth = p.size;
-        ctx.beginPath();
-        ctx.moveTo(p.points[0].x, p.points[0].y);
-        for(let i=1;i<p.points.length;i++) ctx.lineTo(p.points[i].x, p.points[i].y);
-        ctx.stroke();
-      }
-      // restore composite mode
-      ctx.globalCompositeOperation = 'source-over';
-    }
-
-    // pointer events (works for touch + mouse)
-    function getPointerPos(e){
-      const rect = canvas.getBoundingClientRect();
-      const clientX = (e.touches ? e.touches[0].clientX : e.clientX);
-      const clientY = (e.touches ? e.touches[0].clientY : e.clientY);
-      return {x: clientX - rect.left, y: clientY - rect.top};
-    }
-    canvas.addEventListener('pointerdown', e=>{ canvas.setPointerCapture(e.pointerId); const p=getPointerPos(e); start(p.x,p.y);});
-    canvas.addEventListener('pointermove', e=>{ const p=getPointerPos(e); move(p.x,p.y);});
-    canvas.addEventListener('pointerup', e=>{ canvas.releasePointerCapture(e.pointerId); end();});
-    canvas.addEventListener('pointerleave', end);
-
-    // tool controls
-    colorInput.addEventListener('input', ()=>{ ctx.strokeStyle = colorInput.value; tool='pen'; });
-    sizeInput.addEventListener('input', ()=>{ ctx.lineWidth = parseInt(sizeInput.value,10); sizeLabel.textContent = sizeInput.value; });
-    eraserBtn.addEventListener('click', ()=>{ tool='eraser'; });
-    clearBtn.addEventListener('click', ()=>{ paths=[]; redraw(); });
-    undoBtn.addEventListener('click', ()=>{ paths.pop(); redraw(); });
-    downloadBtn.addEventListener('click', ()=>{
-      const data = canvas.toDataURL('image/png');
-      const a = document.createElement('a');
-      a.href = data; a.download = 'drawing.png'; a.click();
-    });
-
-    // initial pen config
-    ctx.strokeStyle = colorInput.value;
-    ctx.lineWidth = parseInt(sizeInput.value,10);
-
-    // ======= Sending to Telegram Bot =======
-    // When inside Telegram WebApp, use Telegram.WebApp.sendData to send the base64 image string to the bot.
-    // The bot will receive an update containing message.web_app_data with the data you send.
-    sendBtn.addEventListener('click', async ()=>{
-      // ensure there's something drawn
-      if(paths.length === 0) {
-        alert('لوحة الرسم فارغة — اسحب لبدء الرسم.');
-        return;
-      }
-
-      // get a trimmed PNG (optional: here we send full canvas)
-      const dataUrl = canvas.toDataURL('image/png');
-      const payload = {
-        type: 'drawing',
-        timestamp: Date.now(),
-        data: dataUrl
-      };
-
-      if(isTelegram){
-        try{
-          window.Telegram.WebApp.sendData(JSON.stringify(payload));
-          // يمكنك إظهار رسالة نجاح للمستخدم
-          if(window.Telegram.WebApp.BackButton) window.Telegram.WebApp.showPopup && window.Telegram.WebApp.showPopup({title:'تم الإرسال', message:'تم إرسال الرسم إلى البوت.'});
-        }catch(e){
-          alert('خطأ في إرسال البيانات إلى البوت: '+e.message);
-        }
-      } else {
-        // خارج التيليجرام: نجري POST إلى endpoint (خياري، مفيد للتجربة المحلية)
-        try{
-          const res = await fetch('/upload', {method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(payload)});
-          if(res.ok) alert('تم الإرسال إلى السيرفر (ليس عبر تيليجرام).'); else alert('فشل الإرسال إلى السيرفر.');
-        }catch(err){ alert('خطأ اتصال: '+err.message); }
-      }
-    });
-
-    // Allow drawing with mouse when pointer events missing
-    // (pointer events are used above; this is for older browsers fallback)
-  </script>
-
-  <!--
-    ملاحظات عند النشر:
-    1) يجب استضافة هذه الصفحة على HTTPS (تيليجرام يتطلب HTTPS).
-    2) عند إرسال زِر WebApp من البوت، ضع رابط هذه الصفحة كرابط WebApp.
-       مثال في python-telegram-bot: InlineKeyboardButton('رسم', web_app=WebAppInfo(url='https://your-domain.com/draw.html'))
-    3) عندما يضغط المستخدم "إرسال للبوت" داخل WebApp، سيستلم البوت رسالة تحتوي على update.message.web_app_data.data.
-       هذا الحقل سيكون JSON منسق كما في payload أعلاه — احصل على dataUrl وحولها إلى ملف صورة.
-
-    أسفل يوجد مثال مختصر لكيفية استقبال البيانات على البوت (python-telegram-bot v20+):
-
-    async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
-        msg = update.message
-        if msg and msg.web_app_data:
-            try:
-                payload = json.loads(msg.web_app_data.data)
-                if payload.get('type') == 'drawing':
-                    data_url = payload['data']  # 'data:image/png;base64,....'
-                    header, b64 = data_url.split(',', 1)
-                    data = base64.b64decode(b64)
-                    bio = io.BytesIO(data)
-                    bio.name = 'drawing.png'
-                    bio.seek(0)
-                    await context.bot.send_photo(chat_id=msg.chat_id, photo=bio, caption='🎨 رسم من WebApp')
-            except Exception as e:
-                # سجل الخطأ
-                pass
-  -->
+  if (isTelegram) {
+    Telegram.WebApp.sendData(payload);
+    Telegram.WebApp.close(); // يغلق النافذة بعد الإرسال
+  } else {
+    alert('🚫 افتح هذه الصفحة من داخل تيليجرام لتجربة الإرسال.');
+  }
+});
+</script>
 </body>
 </html>
