@@ -1,186 +1,304 @@
 <!DOCTYPE html>
 <html lang="ar" dir="rtl">
 <head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>🎨 أداة الرسم في تيليجرام</title>
-  <style>
-    body {
-      margin: 0;
-      background: #111;
-      color: #fff;
-      font-family: "Tajawal", sans-serif;
-      display: flex;
-      flex-direction: column;
-      height: 100vh;
-      overflow: hidden;
-    }
-    header {
-      background: #1e1e1e;
-      padding: 10px;
-      text-align: center;
-      font-weight: bold;
-      border-bottom: 1px solid #333;
-    }
-    canvas {
-      flex: 1;
-      background: #fff;
-      cursor: crosshair;
-      touch-action: none;
-    }
-    .controls {
-      background: #1e1e1e;
-      padding: 10px;
-      display: flex;
-      justify-content: space-around;
-      align-items: center;
-      gap: 10px;
-    }
-    input[type="color"],
-    input[type="range"],
-    button {
-      cursor: pointer;
-    }
-    button {
-      background: #00a884;
-      color: #fff;
-      border: none;
-      border-radius: 10px;
-      padding: 8px 14px;
-      font-size: 14px;
-      transition: 0.3s;
-    }
-    button:hover {
-      opacity: 0.85;
-    }
-    .danger {
-      background: #d9534f;
-    }
-    .secondary {
-      background: #444;
-    }
-  </style>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>خمن الرسمة - لوحة الرسم</title>
+    <script src="https://telegram.org/js/telegram-web-app.js"></script>
+    <style>
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, 'Open Sans', 'Helvetica Neue', sans-serif;
+            margin: 0;
+            padding: 10px;
+            background-color: var(--tg-theme-bg-color, #f0f0f0);
+            color: var(--tg-theme-text-color, #000000);
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+        }
+
+        #word-display {
+            font-size: 1.2em;
+            font-weight: bold;
+            margin-bottom: 10px;
+            padding: 10px;
+            border-radius: 8px;
+            color: var(--tg-theme-button-color, #ffffff);
+            background-color: var(--tg-theme-accent-text-color, #1e90ff);
+        }
+
+        #canvas-container {
+            border: 2px solid var(--tg-theme-hint-color, #cccccc);
+            border-radius: 8px;
+            box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
+            background-color: #ffffff; 
+            touch-action: none; /* لمنع السحب أثناء الرسم */
+            width: 95%;
+            max-width: 500px;
+            aspect-ratio: 1 / 1; 
+        }
+
+        #drawCanvas {
+            width: 100%;
+            height: 100%;
+            display: block;
+        }
+
+        #controls {
+            display: flex;
+            gap: 10px;
+            margin-top: 15px;
+            flex-wrap: wrap;
+            justify-content: center;
+        }
+
+        .control-button {
+            padding: 10px 15px;
+            border: none;
+            border-radius: 6px;
+            cursor: pointer;
+            font-weight: bold;
+            transition: background-color 0.2s;
+            color: var(--tg-theme-button-text-color, #ffffff);
+            background-color: var(--tg-theme-button-color, #1e90ff);
+        }
+
+        .control-button.clear {
+            background-color: var(--tg-theme-destructive-text-color, #ff4136);
+        }
+
+        /* شريط الألوان */
+        #color-picker {
+            display: flex;
+            gap: 5px;
+            margin-bottom: 10px;
+        }
+        .color-swatch {
+            width: 30px;
+            height: 30px;
+            border-radius: 50%;
+            cursor: pointer;
+            border: 2px solid transparent;
+        }
+        .color-swatch.active {
+            border-color: var(--tg-theme-accent-text-color, #1e90ff);
+        }
+    </style>
 </head>
 <body>
-  <header>🎨 أداة الرسم في تيليجرام</header>
-  <canvas id="canvas"></canvas>
 
-  <div class="controls">
-    <label>لون:
-      <input type="color" id="color" value="#ff0000">
-    </label>
-    <label>حجم:
-      <input type="range" id="size" min="1" max="20" value="4">
-    </label>
-    <button id="undo" class="secondary">↩️ تراجع</button>
-    <button id="clear" class="danger">🗑️ مسح</button>
-    <button id="send">📤 إرسال للرّوب</button>
-  </div>
+    <div id="word-display">ارسم كلمة: <span id="drawing-word">جاري التحميل...</span></div>
+    
+    <div id="controls">
+        <button id="clearBtn" class="control-button clear">مسح الكل</button>
+        <div id="color-picker">
+            <div class="color-swatch" data-color="#000000" style="background-color: #000000;"></div>
+            <div class="color-swatch" data-color="#FF0000" style="background-color: #FF0000;"></div>
+            <div class="color-swatch" data-color="#008000" style="background-color: #008000;"></div>
+            <div class="color-swatch" data-color="#0000FF" style="background-color: #0000FF;"></div>
+        </div>
+        <button id="submitBtn" class="control-button" disabled>✅ إرسال الرسمة</button>
+    </div>
 
-  <script>
-    // ===============================
-    // 🎯 التحقق من تشغيل داخل تيليجرام
-    // ===============================
-    const tg = window.Telegram?.WebApp;
-    if (!tg) {
-      alert("⚠️ افتح هذه الصفحة من داخل تطبيق تيليجرام لتجربة الإرسال.");
-    } else {
-      tg.expand();
-    }
+    <div id="canvas-container">
+        <canvas id="drawCanvas"></canvas>
+    </div>
 
-    // ===============================
-    // ✏️ منطق الرسم على Canvas
-    // ===============================
-    const canvas = document.getElementById("canvas");
-    const ctx = canvas.getContext("2d");
-    const colorPicker = document.getElementById("color");
-    const sizePicker = document.getElementById("size");
-    const clearBtn = document.getElementById("clear");
-    const sendBtn = document.getElementById("send");
-    const undoBtn = document.getElementById("undo");
+    <script>
+        const canvas = document.getElementById('drawCanvas');
+        const ctx = canvas.getContext('2d');
+        const wordDisplay = document.getElementById('drawing-word');
+        const submitBtn = document.getElementById('submitBtn');
+        const clearBtn = document.getElementById('clearBtn');
+        const colorPicker = document.getElementById('color-picker');
 
-    let drawing = false;
-    let paths = [];
-    let currentPath = [];
+        let isDrawing = false;
+        let lastX = 0;
+        let lastY = 0;
+        let chat_id = null;
+        let user_id = null;
+        let drawing_word = null;
+        let currentColor = '#000000'; // اللون الافتراضي
 
-    function resizeCanvas() {
-      const temp = document.createElement("canvas");
-      temp.width = canvas.width;
-      temp.height = canvas.height;
-      temp.getContext("2d").drawImage(canvas, 0, 0);
-      canvas.width = window.innerWidth;
-      canvas.height = window.innerHeight - 120;
-      ctx.drawImage(temp, 0, 0);
-    }
-    resizeCanvas();
-    window.addEventListener("resize", resizeCanvas);
+        // ------------------
+        // 1. تهيئة الـ Canvas
+        // ------------------
+        function initializeCanvas() {
+            // اجعل حجم الـ canvas يتطابق مع حجم الحاوية
+            const container = document.getElementById('canvas-container');
+            canvas.width = container.clientWidth;
+            canvas.height = container.clientHeight;
 
-    canvas.addEventListener("pointerdown", (e) => {
-      drawing = true;
-      ctx.beginPath();
-      ctx.moveTo(e.offsetX, e.offsetY);
-      currentPath = [{ x: e.offsetX, y: e.offsetY, color: colorPicker.value, size: sizePicker.value }];
-    });
+            ctx.lineWidth = 5;
+            ctx.lineJoin = 'round';
+            ctx.lineCap = 'round';
+            ctx.strokeStyle = currentColor;
 
-    canvas.addEventListener("pointermove", (e) => {
-      if (!drawing) return;
-      ctx.lineTo(e.offsetX, e.offsetY);
-      ctx.strokeStyle = colorPicker.value;
-      ctx.lineWidth = sizePicker.value;
-      ctx.lineCap = "round";
-      ctx.lineJoin = "round";
-      ctx.stroke();
-      currentPath.push({ x: e.offsetX, y: e.offsetY });
-    });
-
-    canvas.addEventListener("pointerup", () => {
-      if (drawing) {
-        drawing = false;
-        paths.push(currentPath);
-      }
-    });
-
-    clearBtn.addEventListener("click", () => {
-      ctx.clearRect(0, 0, canvas.width, canvas.height);
-      paths = [];
-    });
-
-    undoBtn.addEventListener("click", () => {
-      if (paths.length === 0) return;
-      paths.pop();
-      ctx.clearRect(0, 0, canvas.width, canvas.height);
-      for (const path of paths) {
-        ctx.beginPath();
-        ctx.moveTo(path[0].x, path[0].y);
-        for (const point of path) {
-          ctx.lineTo(point.x, point.y);
-          ctx.strokeStyle = path[0].color;
-          ctx.lineWidth = path[0].size;
-          ctx.lineCap = "round";
-          ctx.lineJoin = "round";
-          ctx.stroke();
+            // ملء الخلفية باللون الأبيض لضمان خلفية الصورة PNG/JPEG تكون بيضاء
+            ctx.fillStyle = '#FFFFFF';
+            ctx.fillRect(0, 0, canvas.width, canvas.height);
         }
-      }
-    });
 
-    // ===============================
-    // 🚀 إرسال الصورة للبوت
-    // ===============================
-    sendBtn.addEventListener("click", () => {
-      const dataURL = canvas.toDataURL("image/png");
-      const payload = {
-        type: "drawing",
-        data: dataURL,
-        timestamp: Date.now(),
-      };
+        // ------------------
+        // 2. دوال الرسم
+        // ------------------
+        function draw(e) {
+            if (!isDrawing) return;
+            
+            submitBtn.disabled = false; // تفعيل زر الإرسال عند بدء الرسم
 
-      if (tg) {
-        tg.sendData(JSON.stringify(payload));
-        tg.close();
-      } else {
-        alert("⚠️ لا يمكن الإرسال إلا من داخل تطبيق تيليجرام.");
-      }
-    });
-  </script>
+            const rect = canvas.getBoundingClientRect();
+            // استخدام clientX/Y للمؤشر أو لمسة واحدة
+            let clientX, clientY;
+            
+            if (e.touches && e.touches.length > 0) {
+                clientX = e.touches[0].clientX;
+                clientY = e.touches[0].clientY;
+            } else {
+                clientX = e.clientX;
+                clientY = e.clientY;
+            }
+
+            const x = (clientX - rect.left) * (canvas.width / rect.width);
+            const y = (clientY - rect.top) * (canvas.height / rect.height);
+            
+            ctx.beginPath();
+            ctx.moveTo(lastX, lastY);
+            ctx.lineTo(x, y);
+            ctx.stroke();
+            
+            [lastX, lastY] = [x, y];
+        }
+        
+        // ------------------
+        // 3. معالجة الإدخال
+        // ------------------
+        function setDrawingStart(e) {
+            isDrawing = true;
+            const rect = canvas.getBoundingClientRect();
+            let clientX = e.clientX, clientY = e.clientY;
+
+            if (e.touches && e.touches.length > 0) {
+                clientX = e.touches[0].clientX;
+                clientY = e.touches[0].clientY;
+            }
+            
+            // حساب الإحداثيات بالنسبة للـ Canvas
+            const x = (clientX - rect.left) * (canvas.width / rect.width);
+            const y = (clientY - rect.top) * (canvas.height / rect.height);
+            [lastX, lastY] = [x, y];
+
+            e.preventDefault(); // منع تمرير الشاشة
+        }
+
+        function setDrawingEnd() {
+            isDrawing = false;
+        }
+
+        // ------------------
+        // 4. معالجة الألوان
+        // ------------------
+        colorPicker.querySelectorAll('.color-swatch').forEach(swatch => {
+            swatch.addEventListener('click', () => {
+                currentColor = swatch.dataset.color;
+                ctx.strokeStyle = currentColor;
+
+                // تحديث حالة النشاط
+                colorPicker.querySelectorAll('.color-swatch').forEach(s => s.classList.remove('active'));
+                swatch.classList.add('active');
+            });
+        });
+        // تفعيل اللون الافتراضي
+        colorPicker.querySelector('[data-color="#000000"]').classList.add('active');
+
+        // ------------------
+        // 5. ربط الأحداث
+        // ------------------
+        canvas.addEventListener('mousedown', setDrawingStart);
+        canvas.addEventListener('mousemove', draw);
+        canvas.addEventListener('mouseup', setDrawingEnd);
+        canvas.addEventListener('mouseout', setDrawingEnd);
+        
+        // دعم اللمس للأجهزة المحمولة
+        canvas.addEventListener('touchstart', setDrawingStart);
+        canvas.addEventListener('touchmove', draw);
+        canvas.addEventListener('touchend', setDrawingEnd);
+        canvas.addEventListener('touchcancel', setDrawingEnd);
+
+        clearBtn.addEventListener('click', () => {
+            ctx.fillRect(0, 0, canvas.width, canvas.height); // إعادة ملء الخلفية باللون الأبيض
+            submitBtn.disabled = true; // تعطيل زر الإرسال
+        });
+
+        // ------------------
+        // 6. تهيئة Web App والبيانات
+        // ------------------
+        function getQueryParams() {
+            const params = {};
+            window.location.search.substring(1).split("&").forEach(pair => {
+                const [key, value] = pair.split("=");
+                if (key && value) {
+                    params[key] = decodeURIComponent(value.replace(/\+/g, " "));
+                }
+            });
+            return params;
+        }
+
+        function initializeApp() {
+            if (window.Telegram && window.Telegram.WebApp) {
+                Telegram.WebApp.ready();
+                Telegram.WebApp.expand(); 
+            }
+
+            const params = getQueryParams();
+            drawing_word = params.word || 'تفاحة'; // افتراضي
+            chat_id = params.chat_id;
+            user_id = params.user_id;
+            
+            wordDisplay.textContent = drawing_word;
+            
+            if (!chat_id || !user_id) {
+                wordDisplay.textContent += ' (خطأ في البيانات!)';
+            }
+
+            // تهيئة Canvas بعد أن تكون جميع العناصر جاهزة
+            initializeCanvas();
+            window.addEventListener('resize', initializeCanvas); // إعادة التهيئة عند تغيير الحجم
+
+            submitBtn.addEventListener('click', sendDrawingToBot);
+        }
+        
+        // ------------------
+        // 7. دالة الإرسال للبوت
+        // ------------------
+        function sendDrawingToBot() {
+            if (!Telegram.WebApp || !chat_id || !user_id) {
+                alert('خطأ في اتصال البوت. حاول إعادة فتح الرابط.');
+                return;
+            }
+
+            // استخراج بيانات الصورة كـ Base64
+            const drawingData = canvas.toDataURL('image/png'); // يمكن استخدام image/jpeg لملف أصغر
+            
+            const payload = {
+                chat_id: chat_id,
+                user_id: user_id,
+                drawing_data: drawingData // بيانات Base64
+            };
+
+            // إرسال كائن JSON إلى البوت
+            try {
+                Telegram.WebApp.sendData(JSON.stringify(payload));
+                // إغلاق نافذة الويب بعد الإرسال
+                Telegram.WebApp.close(); 
+            } catch (error) {
+                console.error("Failed to send data:", error);
+                alert('فشل إرسال البيانات إلى البوت.');
+            }
+        }
+
+        initializeApp();
+
+    </script>
 </body>
 </html>
