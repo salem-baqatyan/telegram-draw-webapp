@@ -348,41 +348,41 @@
         // 🚀 إرسال الرسمة للبوت
         // ------------------------------
 
-        SubmitButton.addEventListener('click', () => {
-            // استخراج بيانات الصورة كـ Base64
-            // يجب تجاهل الجزء "data:image/png;base64," في سلسلة البيانات
-            const base64Image = Canvas.toDataURL('image/png'); 
-            
-            // تحقق من وجود بيانات أساسية
-            if (!userId) {
-                alert("خطأ: لم يتم التعرف على هوية المستخدم. يرجى إعادة فتح التطبيق.");
-                return;
-            }
+SubmitButton.addEventListener('click', () => {
+    if (!userId) {
+        alert("خطأ: لم يتم التعرف على هوية المستخدم. يرجى إعادة فتح التطبيق.");
+        return;
+    }
 
-            // إعداد كائن JSON للإرسال (الخيار ب)
-            const dataToSend = {
-                chat_id: new URLSearchParams(window.location.search).get('chat_id'), // نحاول قراءة chat_id إذا مرره البوت
-                user_id: userId,
-                drawing_data: base64Image
-            };
-            
-            // تحويل الكائن إلى سلسلة JSON
-            const jsonString = JSON.stringify(dataToSend);
+    // احصل على chat_id من رابط الصفحة إن أرسله البوت
+    const chatIdFromUrl = new URLSearchParams(window.location.search).get('chat_id');
 
-            // إرسال البيانات إلى البوت عبر WebApp API
-            if (window.Telegram && window.Telegram.WebApp) {
-                // إخفاء الزر الرئيسي قبل الإرسال (أمر جيد للمستخدم)
-                window.Telegram.WebApp.MainButton.hide(); 
-                
-                // إرسال البيانات
-                window.Telegram.WebApp.sendData(jsonString);
-                
-                // إغلاق نافذة الويب (أو إظهار رسالة نجاح)
-                window.Telegram.WebApp.close();
-            } else {
-                alert("Telegram WebApp API غير متوفر. لا يمكن إرسال الرسمة.");
-            }
-        });
+    // استخراج بيانات الصورة Base64 (نحتفظ بالبادئة — الخادم سيُعالِجها)
+    const base64Image = Canvas.toDataURL('image/png'); // "data:image/png;base64,...."
+
+    const dataToSend = {
+        chat_id: chatIdFromUrl,   // لابد أن يكون رقميًا (مثال: -1001234567890)
+        user_id: userId,
+        drawing_data: base64Image,
+        word: secretWord
+    };
+
+    const jsonString = JSON.stringify(dataToSend);
+
+    if (window.Telegram && window.Telegram.WebApp) {
+        // إخفاء زر تيليجرام الأساسي (اختياري)
+        try { window.Telegram.WebApp.MainButton.hide(); } catch(e){}
+
+        // إرسال البيانات إلى البوت (سيستلمها الخادم ضمن update.web_app_data)
+        window.Telegram.WebApp.sendData(jsonString);
+
+        // إغلاق WebApp بعد الإرسال
+        window.Telegram.WebApp.close();
+    } else {
+        alert("Telegram WebApp API غير متوفر. لا يمكن إرسال الرسمة.");
+    }
+});
+
 
         // ------------------------------
         // ⚙️ تهيئة التطبيق
@@ -426,3 +426,4 @@
     </script>
 </body>
 </html>
+
