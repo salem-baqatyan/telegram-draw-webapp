@@ -28,36 +28,39 @@
   const MAX_UNDO = 20;
 
 
-  const IMGBB_API_KEY = "adcb6daec9bef4d4e64dc34f2f8ca568"; // ⚠️ استبدل هذا بالمفتاح الخاص بك
-
-// دالة لرفع Base64 إلى ImgBB
-async function uploadToImgBB(base64Image) {
-    const url = `https://api.imgbb.com/1/upload?key=${IMGBB_API_KEY}`;
+async function uploadToUguu(binaryData) {
+    const url = "https://uguu.se/upload.php";
     
-    // ImgBB يتوقع أن يتم إرسال base64 كبيانات form-data
     const formData = new FormData();
-    formData.append('image', base64Image); // Base64 الصورة
+    // Uguu يتوقع ملفًا، لذا يجب تحويل Base64 إلى Blob (ملف مؤقت) أولاً
+    const blob = await fetch(binaryData).then(res => res.blob());
+    
+    // إضافة الملف إلى formData
+    formData.append('file', blob, 'doodle.jpg'); // اسم الملف
 
     try {
         const response = await fetch(url, {
             method: 'POST',
-            body: formData
+            body: formData // إرسال ملف form-data
         });
         
         if (!response.ok) {
-            throw new Error(`ImgBB API Error: ${response.statusText}`);
+            throw new Error(`Uguu.se upload failed with status: ${response.status}`);
         }
 
-        const result = await response.json();
+        // Uguu.se يعيد رابط الملف كنص عادي
+        const imageUrl = await response.text(); 
         
-        if (result.success && result.data && result.data.url) {
-            return result.data.url; // إرجاع رابط الصورة المباشر
+        // التحقق من أن الرابط صالح
+        if (imageUrl.startsWith('http')) {
+             return imageUrl.trim();
         } else {
-            throw new Error(`ImgBB upload failed: ${result.status_code || 'Unknown error'}`);
+             throw new Error(`Uguu.se returned invalid link: ${imageUrl.substring(0, 50)}...`);
         }
     } catch (error) {
         console.error("Upload failed:", error);
-        throw new Error("فشل في رفع الصورة إلى خدمة التخزين السحابي.");
+        // إعادة رمي خطأ بسيط لعرضه للمستخدم
+        throw new Error("فشل في رفع الصورة إلى Uguu.se. (Check Console for details)");
     }
 }
 
@@ -204,18 +207,26 @@ btnSend.addEventListener('click', async () => {
         return;
     }
     
-    // ... (تجهيز الصورة وتحويلها إلى base64Image)
-    // الكود الخاص بتصغير الصورة وتحويلها إلى base64Image صحيح ولا يحتاج لتغيير.
+    // 1. تصغير الصورة وتحويلها إلى Data URL (صيغة Base64 مع البادئة)
+    const TEMP_SIZE = 300;
+    const tempCanvas = document.createElement('canvas');
+    tempCanvas.width = TEMP_SIZE;
+    tempCanvas.height = TEMP_SIZE;
+    const tempCtx = tempCanvas.getContext('2d');
+    const ratio = window.devicePixelRatio || 1;
+    tempCtx.drawImage(canvas, 0, 0, canvas.width / ratio, canvas.height / ratio, 0, 0, TEMP_SIZE, TEMP_SIZE);
+    
+    // نحتاج إلى Base64 مع البادئة (Data URL) لاستخدامه في دالة fetch لتحويله إلى Blob
+    const dataURL = tempCanvas.toDataURL('image/jpeg', 0.8); 
 
     // 2. رفع الصورة والحصول على الرابط
     let imageUrl;
-    tg.showProgress(); // إظهار شريط التحميل (يجب أن يظهر الآن)
+    tg.showProgress(); 
     
-    // ⚠️ قم بتغليف كتلة الرفع بالكامل للتأكد من التقاط أي خطأ
     try {
-        imageUrl = await uploadToImgBB(base64Image);
+        // ⚠️ استخدام الدالة الجديدة التي ترسل Base64 كملف
+        imageUrl = await uploadToUguu(dataURL);
         
-        // إذا نجح الرفع، سنخفي شريط التحميل
         tg.hideProgress(); 
         
         // 3. إرسال الرابط إلى البوت
@@ -233,10 +244,9 @@ btnSend.addEventListener('click', async () => {
         tg.close();
         
     } catch (err) {
-        // ⚠️ إذا حدث أي خطأ (أثناء الرفع، أو الإرسال، أو أي شيء)
         tg.hideProgress();
         // إظهار الخطأ الدقيق الذي أوقف العملية
-        tg.showAlert('❌ فشل الإرسال. تحقق من مفتاح ImgBB:\n' + err.message);
+        tg.showAlert('❌ فشل الإرسال. قد تكون خدمة التخزين معطلة أو هناك مشكلة في الاتصال:\n' + err.message);
         console.error("Critical Send Error:", err);
     }
 });
