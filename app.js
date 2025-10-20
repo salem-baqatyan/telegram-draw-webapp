@@ -162,34 +162,67 @@
     else window.close();
   });
 
-  // Back button -> close webapp
-btnSend.addEventListener('click', async () => {
-  const dataURL = canvas.toDataURL('image/png');
-  const payload = {
-    type: 'doodle',
-    ts: Date.now(),
-    image: dataURL,
-    user_id: tg?.initDataUnsafe?.user?.id || null
-  };
+// ... (الكود السابق في app.js)
 
-  try {
-    const res = await fetch('http://localhost:8080/upload', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(payload)
-    });
-    const result = await res.json();
-    if (result.ok) {
-      alert('✅ تم إرسال الرسمة بنجاح إلى البوت!');
-      tg?.close();
-    } else {
-      alert('❌ حدث خطأ أثناء الإرسال:\n' + JSON.stringify(result));
+// Back button -> close webapp
+btnSend.addEventListener('click', async () => {
+    const tg = window.Telegram?.WebApp || null;
+    if (!tg) {
+        alert('⚠️ لم يتم اكتشاف بيئة تيليجرام.');
+        return;
     }
-  } catch (err) {
-    alert('⚠️ لم أستطع الاتصال بالخادم المحلي:\n' + err.message);
-  }
+
+    // 1. استخراج بيانات الصورة بصيغة base64
+    const dataURL = canvas.toDataURL('image/png');
+
+    // 2. تجهيز البيانات كـ JSON
+    // سنرسل base64 فقط (بعد إزالة الجزء 'data:image/png;base64,')
+    const base64Image = dataURL.replace(/^data:image\/(png|jpeg);base64,/, '');
+
+    const payload = {
+        type: 'doodle',
+        image_b64: base64Image,
+        user_id: tg.initDataUnsafe?.user?.id || null
+    };
+    
+    // 3. تحويل الـ payload إلى string لإرساله
+    const payload_string = JSON.stringify(payload);
+
+    // 4. إرسال البيانات مباشرة كرسالة نصية إلى البوت.
+    // يتم ذلك بدمج البيانات في أمر "الزر الخاص".
+    // هذا سيعمل إذا كان الـ WebApp مفتوحًا من زر في لوحة مفاتيح.
+    
+    // المفتاح هو استخدام "telegram-doodle-payload::" كبادئة مميزة
+    const bot_message_text = `telegram-doodle-payload::${payload_string}`;
+
+    // إرسال الرسالة إلى البوت (هذه الطريقة تحاكي ضغط زر وإرسال نص).
+    // سيتم إرسال هذا النص كرسالة عادية إلى البوت.
+    try {
+        // نستخدم postEvent لإغلاق الـ WebApp وإرسال الرسالة
+        tg.MainButton.setText(bot_message_text);
+        tg.MainButton.show();
+        tg.MainButton.hide(); // مجرد إخفائها لا يمنع إرسال البيانات إذا كنا داخل chat_type=supergroup
+
+        // الحل الأكثر ضمانًا للإرسال كرسالة: (يجب تفعيله في إعدادات البوت)
+        // إذا كنت تريد التأكد من الإرسال كرسالة وليس كـ inline query، 
+        // يجب أن نعتمد على أن زر إغلاق الـ WebApp سيرسل الرسالة.
+        
+        // كحل مؤقت وموثوق: سنقوم بتوجيه تيليجرام لإرسال الرسالة
+        // نستخدم web_app_data كبديل، ولكن بطريقة مُحكمة أكثر
+        tg.sendData(payload_string);
+
+        // إذا فشلت sendData لسبب ما، جرب هذا:
+        // window.location.href = `t.me/${tg.initDataUnsafe.user.username}?startapp=${encodeURIComponent(bot_message_text)}`;
+
+
+        tg.showAlert('✅ تم إرسال الرسمة بنجاح إلى البوت!');
+        tg.close();
+    } catch (err) {
+        tg.showAlert('❌ حدث خطأ أثناء إرسال البيانات:\n' + err.message);
+    }
 });
 
+// ... (بقية الكود في app.js)
   // Initialize: read init data if available
   try {
     if (tg) {
