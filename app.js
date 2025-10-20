@@ -171,58 +171,56 @@ btnSend.addEventListener('click', async () => {
         alert('⚠️ لم يتم اكتشاف بيئة تيليجرام.');
         return;
     }
+    
+    // 1. إنشاء لوحة مؤقتة لتصغير الصورة
+    const TEMP_SIZE = 300;
+    const tempCanvas = document.createElement('canvas');
+    tempCanvas.width = TEMP_SIZE;
+    tempCanvas.height = TEMP_SIZE;
+    const tempCtx = tempCanvas.getContext('2d');
+    
+    // رسم محتوى اللوحة الأصلية على اللوحة المصغرة
+    // (يجب أن نأخذ في الاعتبار الـ devicePixelRatio عند الرسم)
+    const ratio = window.devicePixelRatio || 1;
+    tempCtx.drawImage(
+        canvas, 
+        0, 0, canvas.width / ratio, canvas.height / ratio, // مصدر الرسم (اللوحة الأصلية)
+        0, 0, TEMP_SIZE, TEMP_SIZE // وجهة الرسم (اللوحة المصغرة)
+    );
 
-    // 1. استخراج بيانات الصورة بصيغة base64
-    const dataURL = canvas.toDataURL('image/png');
+    // 2. استخراج بيانات الصورة المصغرة بصيغة base64
+    // الجودة 0.75 للمساعدة في تقليل الحجم أكثر
+    const dataURL = tempCanvas.toDataURL('image/jpeg', 0.75); // استخدام JPEG بدلاً من PNG لتقليل حجم الملف أكثر
 
-    // 2. تجهيز البيانات كـ JSON
-    // سنرسل base64 فقط (بعد إزالة الجزء 'data:image/png;base64,')
-    const base64Image = dataURL.replace(/^data:image\/(png|jpeg);base64,/, '');
-
+    // 3. تجهيز البيانات كـ JSON
+    // سنرسل base64 فقط (بعد إزالة الجزء 'data:image/jpeg;base64,')
+    const base64Image = dataURL.replace(/^data:image\/(jpeg|png);base64,/, '');
+    
     const payload = {
         type: 'doodle',
         image_b64: base64Image,
         user_id: tg.initDataUnsafe?.user?.id || null
     };
-    
-    // 3. تحويل الـ payload إلى string لإرساله
+
+    // 4. تحويل الـ payload إلى string
     const payload_string = JSON.stringify(payload);
 
-    // 4. إرسال البيانات مباشرة كرسالة نصية إلى البوت.
-    // يتم ذلك بدمج البيانات في أمر "الزر الخاص".
-    // هذا سيعمل إذا كان الـ WebApp مفتوحًا من زر في لوحة مفاتيح.
-    
-    // المفتاح هو استخدام "telegram-doodle-payload::" كبادئة مميزة
-    const bot_message_text = `telegram-doodle-payload::${payload_string}`;
+    // التحقق من الحجم النهائي قبل الإرسال (اختياري لكن مفيد)
+    console.log("Payload size (bytes):", new TextEncoder().encode(payload_string).length);
 
-    // إرسال الرسالة إلى البوت (هذه الطريقة تحاكي ضغط زر وإرسال نص).
-    // سيتم إرسال هذا النص كرسالة عادية إلى البوت.
+    // 5. إرسال البيانات إلى البوت باستخدام sendData
     try {
-        // نستخدم postEvent لإغلاق الـ WebApp وإرسال الرسالة
-        tg.MainButton.setText(bot_message_text);
-        tg.MainButton.show();
-        tg.MainButton.hide(); // مجرد إخفائها لا يمنع إرسال البيانات إذا كنا داخل chat_type=supergroup
-
-        // الحل الأكثر ضمانًا للإرسال كرسالة: (يجب تفعيله في إعدادات البوت)
-        // إذا كنت تريد التأكد من الإرسال كرسالة وليس كـ inline query، 
-        // يجب أن نعتمد على أن زر إغلاق الـ WebApp سيرسل الرسالة.
-        
-        // كحل مؤقت وموثوق: سنقوم بتوجيه تيليجرام لإرسال الرسالة
-        // نستخدم web_app_data كبديل، ولكن بطريقة مُحكمة أكثر
         tg.sendData(payload_string);
-
-        // إذا فشلت sendData لسبب ما، جرب هذا:
-        // window.location.href = `t.me/${tg.initDataUnsafe.user.username}?startapp=${encodeURIComponent(bot_message_text)}`;
-
-
+        
+        // إظهار تنبيه وإغلاق الـ WebApp بعد الإرسال الناجح
         tg.showAlert('✅ تم إرسال الرسمة بنجاح إلى البوت!');
         tg.close();
     } catch (err) {
+        // إذا استمر الخطأ، سنعرض رسالة الخطأ لتتبع المشكلة
         tg.showAlert('❌ حدث خطأ أثناء إرسال البيانات:\n' + err.message);
     }
 });
 
-// ... (بقية الكود في app.js)
   // Initialize: read init data if available
   try {
     if (tg) {
