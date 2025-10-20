@@ -173,28 +173,26 @@ btnSend.addEventListener('click', async () => {
     }
     
     // 1. إنشاء لوحة مؤقتة لتصغير الصورة
-    const TEMP_SIZE = 300;
+    const TEMP_SIZE = 300; // يمكن تجربة 200 إذا استمرت المشكلة
     const tempCanvas = document.createElement('canvas');
     tempCanvas.width = TEMP_SIZE;
     tempCanvas.height = TEMP_SIZE;
     const tempCtx = tempCanvas.getContext('2d');
     
     // رسم محتوى اللوحة الأصلية على اللوحة المصغرة
-    // (يجب أن نأخذ في الاعتبار الـ devicePixelRatio عند الرسم)
     const ratio = window.devicePixelRatio || 1;
     tempCtx.drawImage(
         canvas, 
-        0, 0, canvas.width / ratio, canvas.height / ratio, // مصدر الرسم (اللوحة الأصلية)
-        0, 0, TEMP_SIZE, TEMP_SIZE // وجهة الرسم (اللوحة المصغرة)
+        0, 0, canvas.width / ratio, canvas.height / ratio, 
+        0, 0, TEMP_SIZE, TEMP_SIZE 
     );
 
-    // 2. استخراج بيانات الصورة المصغرة بصيغة base64
-    // الجودة 0.75 للمساعدة في تقليل الحجم أكثر
-    const dataURL = tempCanvas.toDataURL('image/jpeg', 0.75); // استخدام JPEG بدلاً من PNG لتقليل حجم الملف أكثر
+    // 2. استخراج بيانات الصورة المصغرة بصيغة base64 بجودة منخفضة
+    const dataURL = tempCanvas.toDataURL('image/jpeg', 0.6); // ⚠️ خفضنا الجودة إلى 0.6 لتقليل الحجم
 
     // 3. تجهيز البيانات كـ JSON
-    // سنرسل base64 فقط (بعد إزالة الجزء 'data:image/jpeg;base64,')
-    const base64Image = dataURL.replace(/^data:image\/(jpeg|png);base64,/, '');
+    // سنرسل base64 فقط (مع تعبير منتظم يزيل أي بادئة)
+    const base64Image = dataURL.replace(/^data:image\/[^;]+;base64,/, ''); // ⚠️ تعبير منتظم أكثر شمولاً لإزالة البادئة
     
     const payload = {
         type: 'doodle',
@@ -205,12 +203,13 @@ btnSend.addEventListener('click', async () => {
     // 4. تحويل الـ payload إلى string
     const payload_string = JSON.stringify(payload);
 
-    // التحقق من الحجم النهائي قبل الإرسال (اختياري لكن مفيد)
+    // التحقق من الحجم النهائي
     console.log("Payload size (bytes):", new TextEncoder().encode(payload_string).length);
 
     // 5. إرسال البيانات إلى البوت باستخدام sendData
     try {
         tg.sendData(payload_string);
+        // ... (بقية الكود)
         
         // إظهار تنبيه وإغلاق الـ WebApp بعد الإرسال الناجح
         tg.showAlert('✅ تم إرسال الرسمة بنجاح إلى البوت!');
