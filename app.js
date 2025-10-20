@@ -27,6 +27,40 @@
   const undoStack = [];
   const MAX_UNDO = 20;
 
+
+  const IMGBB_API_KEY = "adcb6daec9bef4d4e64dc34f2f8ca568"; // ⚠️ استبدل هذا بالمفتاح الخاص بك
+
+// دالة لرفع Base64 إلى ImgBB
+async function uploadToImgBB(base64Image) {
+    const url = `https://api.imgbb.com/1/upload?key=${IMGBB_API_KEY}`;
+    
+    // ImgBB يتوقع أن يتم إرسال base64 كبيانات form-data
+    const formData = new FormData();
+    formData.append('image', base64Image); // Base64 الصورة
+
+    try {
+        const response = await fetch(url, {
+            method: 'POST',
+            body: formData
+        });
+        
+        if (!response.ok) {
+            throw new Error(`ImgBB API Error: ${response.statusText}`);
+        }
+
+        const result = await response.json();
+        
+        if (result.success && result.data && result.data.url) {
+            return result.data.url; // إرجاع رابط الصورة المباشر
+        } else {
+            throw new Error(`ImgBB upload failed: ${result.status_code || 'Unknown error'}`);
+        }
+    } catch (error) {
+        console.error("Upload failed:", error);
+        throw new Error("فشل في رفع الصورة إلى خدمة التخزين السحابي.");
+    }
+}
+
   // Init canvas size to css pixel ratio for sharpness
   function fixCanvas() {
     const ratio = window.devicePixelRatio || 1;
@@ -162,9 +196,7 @@
     else window.close();
   });
 
-// ... (الكود السابق في app.js)
-
-// Back button -> close webapp
+// معالج زر الإرسال
 btnSend.addEventListener('click', async () => {
     const tg = window.Telegram?.WebApp || null;
     if (!tg) {
@@ -172,54 +204,51 @@ btnSend.addEventListener('click', async () => {
         return;
     }
     
-    // 1. إنشاء لوحة مؤقتة لتصغير الصورة
-    const TEMP_SIZE = 300; // يمكن تجربة 200 إذا استمرت المشكلة
+    // 1. تصغير الصورة (كما في الحل السابق لضمان عملها بشكل جيد)
+    const TEMP_SIZE = 300;
     const tempCanvas = document.createElement('canvas');
     tempCanvas.width = TEMP_SIZE;
     tempCanvas.height = TEMP_SIZE;
     const tempCtx = tempCanvas.getContext('2d');
-    
-    // رسم محتوى اللوحة الأصلية على اللوحة المصغرة
     const ratio = window.devicePixelRatio || 1;
-    tempCtx.drawImage(
-        canvas, 
-        0, 0, canvas.width / ratio, canvas.height / ratio, 
-        0, 0, TEMP_SIZE, TEMP_SIZE 
-    );
-
-    // 2. استخراج بيانات الصورة المصغرة بصيغة base64 بجودة منخفضة
-    const dataURL = tempCanvas.toDataURL('image/jpeg', 0.6); // ⚠️ خفضنا الجودة إلى 0.6 لتقليل الحجم
-
-    // 3. تجهيز البيانات كـ JSON
-    // سنرسل base64 فقط (مع تعبير منتظم يزيل أي بادئة)
-    const base64Image = dataURL.replace(/^data:image\/[^;]+;base64,/, ''); // ⚠️ تعبير منتظم أكثر شمولاً لإزالة البادئة
+    tempCtx.drawImage(canvas, 0, 0, canvas.width / ratio, canvas.height / ratio, 0, 0, TEMP_SIZE, TEMP_SIZE);
     
+    // نحتاج إلى base64 بدون البادئة لإرساله إلى ImgBB
+    const dataURL = tempCanvas.toDataURL('image/jpeg', 0.8); // ⚠️ رفعنا الجودة قليلاً لأن الحجم لم يعد مشكلة
+    const base64Image = dataURL.replace(/^data:image\/[^;]+;base64,/, ''); 
+
+    // 2. رفع الصورة والحصول على الرابط
+    let imageUrl;
+    tg.showProgress(); // إظهار شريط التحميل في الـ WebApp
+    try {
+        imageUrl = await uploadToImgBB(base64Image);
+        tg.hideProgress(); // إخفاء شريط التحميل
+    } catch (err) {
+        tg.hideProgress();
+        tg.showAlert('❌ خطأ في الرفع:\n' + err.message);
+        return;
+    }
+
+
+    // 3. إرسال الرابط إلى البوت
     const payload = {
-        type: 'doodle',
-        image_b64: base64Image,
+        type: 'doodle_link', // ⚠️ نوع جديد للـ payload
+        image_url: imageUrl,
         user_id: tg.initDataUnsafe?.user?.id || null
     };
 
-    // 4. تحويل الـ payload إلى string
-    const payload_string = JSON.stringify(payload);
-
-    // التحقق من الحجم النهائي
-    console.log("Payload size (bytes):", new TextEncoder().encode(payload_string).length);
-
-    // 5. إرسال البيانات إلى البوت باستخدام sendData
+    // 4. إرسال البيانات (الرابط الصغير) إلى البوت عبر sendData
     try {
-        tg.sendData(payload_string);
-        // ... (بقية الكود)
+        const payload_string = JSON.stringify(payload);
+        tg.sendData(payload_string); 
         
-        // إظهار تنبيه وإغلاق الـ WebApp بعد الإرسال الناجح
         tg.showAlert('✅ تم إرسال الرسمة بنجاح إلى البوت!');
         tg.close();
     } catch (err) {
-        // إذا استمر الخطأ، سنعرض رسالة الخطأ لتتبع المشكلة
-        tg.showAlert('❌ حدث خطأ أثناء إرسال البيانات:\n' + err.message);
+        // إذا فشل إرسال الرابط الصغير (وهو أمر نادر جداً)
+        tg.showAlert('❌ حدث خطأ أثناء إرسال الرابط إلى البوت:\n' + err.message);
     }
 });
-
   // Initialize: read init data if available
   try {
     if (tg) {
