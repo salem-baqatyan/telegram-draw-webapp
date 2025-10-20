@@ -28,15 +28,30 @@
   const MAX_UNDO = 20;
 
 
-async function uploadToUguu(binaryData) {
+function dataURLtoBlob(dataURL) {
+    const parts = dataURL.split(';base64,');
+    if (parts.length !== 2) {
+        throw new Error('Invalid Data URL format');
+    }
+    const contentType = parts[0].split(':')[1];
+    const raw = window.atob(parts[1]);
+    const rawLength = raw.length;
+    const uInt8Array = new Uint8Array(rawLength);
+
+    for (let i = 0; i < rawLength; ++i) {
+        uInt8Array[i] = raw.charCodeAt(i);
+    }
+    
+    return new Blob([uInt8Array], { type: contentType });
+}
+
+
+// الدالة الجديدة: رفع الصورة إلى Uguu.se (أصبحت أبسط)
+async function uploadToUguu(blob) { // ⚠️ الآن تستقبل Blob مباشرة
     const url = "https://uguu.se/upload.php";
     
     const formData = new FormData();
-    // Uguu يتوقع ملفًا، لذا يجب تحويل Base64 إلى Blob (ملف مؤقت) أولاً
-    const blob = await fetch(binaryData).then(res => res.blob());
-    
-    // إضافة الملف إلى formData
-    formData.append('file', blob, 'doodle.jpg'); // اسم الملف
+    formData.append('file', blob, 'doodle.jpg'); // إضافة الـ Blob كملف
 
     try {
         const response = await fetch(url, {
@@ -44,14 +59,13 @@ async function uploadToUguu(binaryData) {
             body: formData // إرسال ملف form-data
         });
         
+        // ... (بقية الدالة كما هي للتحقق من الاستجابة)
         if (!response.ok) {
             throw new Error(`Uguu.se upload failed with status: ${response.status}`);
         }
 
-        // Uguu.se يعيد رابط الملف كنص عادي
         const imageUrl = await response.text(); 
         
-        // التحقق من أن الرابط صالح
         if (imageUrl.startsWith('http')) {
              return imageUrl.trim();
         } else {
@@ -59,8 +73,7 @@ async function uploadToUguu(binaryData) {
         }
     } catch (error) {
         console.error("Upload failed:", error);
-        // إعادة رمي خطأ بسيط لعرضه للمستخدم
-        throw new Error("فشل في رفع الصورة إلى Uguu.se. (Check Console for details)");
+        throw new Error("فشل في رفع الصورة إلى Uguu.se. (راجع الـ Console)");
     }
 }
 
@@ -207,7 +220,8 @@ btnSend.addEventListener('click', async () => {
         return;
     }
     
-    // 1. تصغير الصورة وتحويلها إلى Data URL (صيغة Base64 مع البادئة)
+    // 1. تصغير الصورة وتحويلها إلى Data URL
+    // ... (كود تصغير الصورة يبقى كما هو)
     const TEMP_SIZE = 300;
     const tempCanvas = document.createElement('canvas');
     tempCanvas.width = TEMP_SIZE;
@@ -216,27 +230,36 @@ btnSend.addEventListener('click', async () => {
     const ratio = window.devicePixelRatio || 1;
     tempCtx.drawImage(canvas, 0, 0, canvas.width / ratio, canvas.height / ratio, 0, 0, TEMP_SIZE, TEMP_SIZE);
     
-    // نحتاج إلى Base64 مع البادئة (Data URL) لاستخدامه في دالة fetch لتحويله إلى Blob
+    // Data URL (بما فيها البادئة)
     const dataURL = tempCanvas.toDataURL('image/jpeg', 0.8); 
 
-    // 2. رفع الصورة والحصول على الرابط
+    // ⚠️ 2. التحويل اليدوي إلى Blob (الخطوة الجديدة والحرجة)
+    let imageBlob;
+    try {
+        imageBlob = dataURLtoBlob(dataURL);
+    } catch(err) {
+        tg.showAlert('❌ فشل تحويل البيانات الداخلية:\n' + err.message);
+        return;
+    }
+
+
+    // 3. رفع الصورة والحصول على الرابط
     let imageUrl;
     tg.showProgress(); 
     
     try {
-        // ⚠️ استخدام الدالة الجديدة التي ترسل Base64 كملف
-        imageUrl = await uploadToUguu(dataURL);
+        // ⚠️ إرسال Blob مباشرة إلى دالة الرفع
+        imageUrl = await uploadToUguu(imageBlob);
         
         tg.hideProgress(); 
         
-        // 3. إرسال الرابط إلى البوت
+        // 4. إرسال الرابط إلى البوت (هذا الجزء موثوق الآن)
         const payload = {
             type: 'doodle_link',
             image_url: imageUrl,
             user_id: tg.initDataUnsafe?.user?.id || null
         };
 
-        // 4. إرسال البيانات (الرابط الصغير) إلى البوت عبر sendData
         const payload_string = JSON.stringify(payload);
         tg.sendData(payload_string); 
         
@@ -245,8 +268,7 @@ btnSend.addEventListener('click', async () => {
         
     } catch (err) {
         tg.hideProgress();
-        // إظهار الخطأ الدقيق الذي أوقف العملية
-        tg.showAlert('❌ فشل الإرسال. قد تكون خدمة التخزين معطلة أو هناك مشكلة في الاتصال:\n' + err.message);
+        tg.showAlert('❌ فشل الرفع الخارجي:\n' + err.message);
         console.error("Critical Send Error:", err);
     }
 });
