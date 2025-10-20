@@ -157,48 +157,38 @@
     a.download = 'doodle.png';
     a.click();
   });
-
-  // Back button -> close webapp
   btnBack.addEventListener('click', () => {
     if (tg) tg.close();
     else window.close();
   });
 
-  // Send to bot using Telegram.WebApp.sendData
-  btnSend.addEventListener('click', async () => {
-    // prepare payload
-    const dataURL = canvas.toDataURL('image/png');
-    const payload = {
-      type: 'doodle',
-      ts: Date.now(),
-      image: dataURL,
-      meta: {
-        brushSize,
-        tool,
-      }
-    };
+  // Back button -> close webapp
+btnSend.addEventListener('click', async () => {
+  const dataURL = canvas.toDataURL('image/png');
+  const payload = {
+    type: 'doodle',
+    ts: Date.now(),
+    image: dataURL,
+    user_id: tg?.initDataUnsafe?.user?.id || null
+  };
 
-    // If opened from Telegram and sendData is available, use it (works only if launched from KeyboardButton)
-    if (tg && typeof tg.sendData === 'function') {
-      try {
-        tg.sendData(JSON.stringify(payload));
-        // optionally show a toast or close
-        if (tg.close) tg.close();
-      } catch (err) {
-        alert('خطأ بالإرسال إلى البوت: '+err.message);
-      }
-      return;
+  try {
+    const res = await fetch('http://localhost:8080/upload', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(payload)
+    });
+    const result = await res.json();
+    if (result.ok) {
+      alert('✅ تم إرسال الرسمة بنجاح إلى البوت!');
+      tg?.close();
+    } else {
+      alert('❌ حدث خطأ أثناء الإرسال:\n' + JSON.stringify(result));
     }
-
-    // Fallback: POST to your server (if you host a backend)
-    // Example (uncomment and set your backend):
-    // await fetch('https://your-server.example/api/upload-doodle', {
-    //   method:'POST',
-    //   headers:{'Content-Type':'application/json'},
-    //   body: JSON.stringify(payload)
-    // });
-    alert('لا يمكن إرسال الرسمة مباشرة لأن WebApp لم يُفتح بواسطة زر لوحة المفاتيح.\n\nالحل: افتح التطبيق عبر زر لوحة المفاتيح من البوت أو اضف خادم لاستقبال الصورة.');
-  });
+  } catch (err) {
+    alert('⚠️ لم أستطع الاتصال بالخادم المحلي:\n' + err.message);
+  }
+});
 
   // Initialize: read init data if available
   try {
