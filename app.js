@@ -166,63 +166,35 @@
 
 
 // معالج زر الإرسال
-btnSend.addEventListener('click', () => {
-    const tg = window.Telegram?.WebApp || null;
-    if (!tg) {
-        alert('⚠️ لم يتم اكتشاف بيئة تيليجرام.');
-        return;
-    }
-    
-    // 1. تصغير الصورة إلى أصغر حجم وأقل جودة ممكنة (للتأكد من أنها أقل من 4KB)
-const MAX_SIZE = 512; // حجم ثابت معقول للصورة المرسلة
-const ratio = window.devicePixelRatio || 1;
-const originalWidth = canvas.width / ratio;
-const originalHeight = canvas.height / ratio;
+btnSend.addEventListener('click', async () => {
+  const tg = window.Telegram?.WebApp;
+  if (!tg) {
+    alert('⚠️ لم يتم اكتشاف بيئة تيليجرام.');
+    return;
+  }
 
-// نضبط الأبعاد للحفاظ على التناسب بدون قص
-let newWidth = originalWidth;
-let newHeight = originalHeight;
-if (Math.max(originalWidth, originalHeight) > MAX_SIZE) {
-  const scale = MAX_SIZE / Math.max(originalWidth, originalHeight);
-  newWidth = originalWidth * scale;
-  newHeight = originalHeight * scale;
-}
+  // حفظ الرسم كـ Base64
+  const dataURL = canvas.toDataURL('image/jpeg', 0.9);
+  const base64Image = dataURL.replace(/^data:image\/jpeg;base64,/, '');
+  const CHUNK_SIZE = 3500; // تحت 4KB بأمان
+  const chunks = [];
 
-const tempCanvas = document.createElement('canvas');
-tempCanvas.width = newWidth;
-tempCanvas.height = newHeight;
-const tempCtx = tempCanvas.getContext('2d');
+  for (let i = 0; i < base64Image.length; i += CHUNK_SIZE) {
+    chunks.push(base64Image.substring(i, i + CHUNK_SIZE));
+  }
 
-// نرسم الصورة كاملة بدون اقتطاع وبجودة أفضل
-tempCtx.drawImage(canvas, 0, 0, originalWidth, originalHeight, 0, 0, newWidth, newHeight);
+  // نرسل أولاً عدد الأجزاء
+  tg.sendData(`DOODLE_PARTS::${chunks.length}`);
 
-// نستخدم جودة JPEG متوسطة (0.85) للحفاظ على التفاصيل والوضوح
-const dataURL = tempCanvas.toDataURL('image/jpeg', 0.85);
-    
-    // إعداد رسالة البوت (Base64 بدون البادئة)
-    const MESSAGE_PREFIX = "DOODLE_B64::"; 
-    const base64Image = dataURL.replace(/^data:image\/[^;]+;base64,/, '');
-    const messageToSend = MESSAGE_PREFIX + base64Image;
+  // نرسل كل جزء على حدة
+  for (let i = 0; i < chunks.length; i++) {
+    tg.sendData(`DOODLE_B64_PART::${i + 1}::${chunks[i]}`);
+    await new Promise(res => setTimeout(res, 100)); // فاصل بسيط لتجنب حظر الإرسال
+  }
 
-    // 2. التحقق من طول البيانات قبل الإرسال
-    if (messageToSend.length < 0) { // نترك هامش أمان بسيط
-         tg.showAlert(`❌ فشل: حجم الرسمة لا يزال كبيراً جداً. ${messageToSend.length} حرف.`);
-         return;
-    }
-
-    // 3. الإرسال عبر API الـ WebApp الرسمي (وهو الحل الوحيد داخل التطبيق)
-    try {
-        tg.sendData(messageToSend);
-        
-        // عند نجاح الإرسال، سيتم إغلاق الـ WebApp
-        tg.showAlert('✅ تم إرسال الرسمة بنجاح إلى البوت!');
-        
-    } catch (err) {
-        // سيحدث هذا الخطأ إذا كان الحجم لا يزال كبيراً
-        tg.showAlert('❌ فشل الإرسال (WebAppDataInvalid):\n ربما حجم الصورة كبير جداً.');
-        console.error("Critical Send Error:", err);
-    }
+  tg.showAlert('✅ تم إرسال الرسم على دفعات! يرجى الانتظار قليلاً ليجمعها البوت.');
 });
+
 
   // Initialize: read init data if available
   try {
