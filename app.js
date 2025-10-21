@@ -190,7 +190,7 @@ btnSend.addEventListener('click', () => {
     }
     
     // 1. تصغير الصورة إلى حجم جذري لتقليل Base64
-const TEMP_SIZE = 180; // زيادة بسيطة في الأبعاد (كان 150)    const tempCanvas = document.createElement('canvas');
+const TEMP_SIZE = 200; // زيادة بسيطة في الأبعاد (كان 150)    const tempCanvas = document.createElement('canvas');
     tempCanvas.width = TEMP_SIZE;
     tempCanvas.height = TEMP_SIZE;
     const tempCtx = tempCanvas.getContext('2d');
@@ -198,8 +198,8 @@ const TEMP_SIZE = 180; // زيادة بسيطة في الأبعاد (كان 150)
     tempCtx.drawImage(canvas, 0, 0, canvas.width / ratio, canvas.height / ratio, 0, 0, TEMP_SIZE, TEMP_SIZE);
     
     // Data URL
-const dataURL = tempCanvas.toDataURL('image/jpeg', 0.5); // جودة 0.5 (ضغط أعلى)
-    
+const dataURL = tempCanvas.toDataURL('image/webp', 0.8); // جودة 0.5 (ضغط أعلى)
+
     // إعداد رسالة البوت (Base64 بدون البادئة)
     const MESSAGE_PREFIX = "DOODLE_B64::"; 
     const base64Image = dataURL.replace(/^data:image\/[^;]+;base64,/, '');
