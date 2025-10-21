@@ -166,13 +166,9 @@
 // معالج زر الإرسال
 btnSend.addEventListener('click', () => {
     const tg = window.Telegram?.WebApp || null;
-    if (!tg) {
-        alert('⚠️ لم يتم اكتشاف بيئة تيليجرام.');
-        return;
-    }
     
-    // 1. تصغير الصورة إلى حجم جذري لتقليل Base64
-    const TEMP_SIZE = 150; // ⚠️ تصغير إضافي
+    // 1. تصغير الصورة وتحويلها إلى Base64 Data URL
+    const TEMP_SIZE = 150; 
     const tempCanvas = document.createElement('canvas');
     tempCanvas.width = TEMP_SIZE;
     tempCanvas.height = TEMP_SIZE;
@@ -181,38 +177,40 @@ btnSend.addEventListener('click', () => {
     tempCtx.drawImage(canvas, 0, 0, canvas.width / ratio, canvas.height / ratio, 0, 0, TEMP_SIZE, TEMP_SIZE);
     
     // Data URL
-    const dataURL = tempCanvas.toDataURL('image/jpeg', 0.6); // ⚠️ استخدام JPEG بجودة أقل
+    const dataURL = tempCanvas.toDataURL('image/jpeg', 0.6); 
     
     // إعداد رسالة البوت (Base64 بدون البادئة)
     const MESSAGE_PREFIX = "DOODLE_B64::"; 
     const base64Image = dataURL.replace(/^data:image\/[^;]+;base64,/, '');
     const messageToSend = MESSAGE_PREFIX + base64Image;
 
-    // 2. إنشاء رابط تيليجرام لرسالة (Share Link)
+    // 2. إنشاء رابط تيليجرام للمشاركة (Share Link)
     try {
-        // user_id البوت الخاص بك هو 'unseen_mvp_games_bot'
-        const BOT_USERNAME = 'unseen_mvp_games_bot'; 
+        // اسم مستخدم البوت (تأكد من أنه صحيح)
+        const BOT_USERNAME = 'unseen_mvp_games_bot'; // ⚠️ تأكد من اسم البوت
         
         // رابط تيليجرام لفتح محادثة البوت وكتابة النص
-        // URL-encode النص بالكامل
         const encodedMessage = encodeURIComponent(messageToSend);
         
-        // الرابط الذي سيفتح نافذة المشاركة (المحاورات القديمة)
+        // الرابط الذي سيفتح نافذة المشاركة
         const shareLink = `https://t.me/${BOT_USERNAME}?text=${encodedMessage}`;
 
-        // ⚠️ إغلاق الـ WebApp قبل إعادة التوجيه لضمان عدم وجود مشكلة في الـ Webview
-        tg.close();
+        // ⚠️ يجب استخدام tg.openTelegramLink() لفتح الروابط داخل WebApp
+        if (tg) {
+            // نغلق الـ WebApp أولاً
+            tg.close(); 
+            // ثم نفتح رابط تيليجرام الذي سيفتح نافذة الرسالة الجديدة
+            tg.openTelegramLink(shareLink);
+            
+        } else {
+            // هذا ليعمل على المتصفحات العادية
+            window.open(shareLink, '_blank'); 
+            alert('✅ تم فتح نافذة الإرسال في تيليجرام! اضغط إرسال.');
+        }
 
-        // 3. فتح الرابط
-        // نستخدم نافذة عادية لفتح الرابط، وهذا سيتسبب في فتح تطبيق تيليجرام.
-        window.open(shareLink, '_blank'); 
-
-        // بما أننا أغلقنا الـ WebApp، سنظهر إشعارًا بسيطًا هنا قبل الإغلاق (اختياري)
-        // tg.showAlert('✅ جاري تحويلك إلى نافذة الإرسال! اضغط إرسال.');
-        
     } catch (err) {
-        // في حال فشل أي شيء (وهو نادر هنا)
-        tg.showAlert('❌ فشل الإرسال عبر رابط المشاركة:\n' + err.message);
+        if (tg) tg.showAlert('❌ فشل الإرسال عبر رابط المشاركة:\n' + err.message);
+        console.error("Critical Send Error:", err);
     }
 });
 
