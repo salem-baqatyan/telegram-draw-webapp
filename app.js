@@ -183,7 +183,7 @@ btnSend.addEventListener('click', () => {
     
     // Data URL
     // نستخدم JPEG بجودة 0.4 أو 0.3 لتقليل الحجم قدر المستطاع.
-    const dataURL = tempCanvas.toDataURL('image/jpeg', 0.4); 
+    const dataURL = tempCanvas.toDataURL('image/jpeg', 1); 
     
     // إعداد رسالة البوت (Base64 بدون البادئة)
     const MESSAGE_PREFIX = "DOODLE_B64::"; 
@@ -241,3 +241,4 @@ btnSend.addEventListener('click', () => {
   }
 
 })();
+
