@@ -28,24 +28,6 @@
   const MAX_UNDO = 20;
 
 
-function dataURLtoBlob(dataURL) {
-    const parts = dataURL.split(';base64,');
-    if (parts.length !== 2) {
-        throw new Error('Invalid Data URL format');
-    }
-    const contentType = parts[0].split(':')[1];
-    const raw = window.atob(parts[1]);
-    const rawLength = raw.length;
-    const uInt8Array = new Uint8Array(rawLength);
-
-    for (let i = 0; i < rawLength; ++i) {
-        uInt8Array[i] = raw.charCodeAt(i);
-    }
-    
-    return new Blob([uInt8Array], { type: contentType });
-}
-
-
   // Init canvas size to css pixel ratio for sharpness
   function fixCanvas() {
     const ratio = window.devicePixelRatio || 1;
@@ -265,4 +247,3 @@ btnSend.addEventListener('click', () => {
   }
 
 })();
-
