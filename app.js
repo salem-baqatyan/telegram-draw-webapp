@@ -46,37 +46,6 @@ function dataURLtoBlob(dataURL) {
 }
 
 
-// الدالة الجديدة: رفع الصورة إلى Uguu.se (أصبحت أبسط)
-async function uploadToUguu(blob) { // ⚠️ الآن تستقبل Blob مباشرة
-    const url = "https://uguu.se/upload.php";
-    
-    const formData = new FormData();
-    formData.append('file', blob, 'doodle.jpg'); // إضافة الـ Blob كملف
-
-    try {
-        const response = await fetch(url, {
-            method: 'POST',
-            body: formData // إرسال ملف form-data
-        });
-        
-        // ... (بقية الدالة كما هي للتحقق من الاستجابة)
-        if (!response.ok) {
-            throw new Error(`Uguu.se upload failed with status: ${response.status}`);
-        }
-
-        const imageUrl = await response.text(); 
-        
-        if (imageUrl.startsWith('http')) {
-             return imageUrl.trim();
-        } else {
-             throw new Error(`Uguu.se returned invalid link: ${imageUrl.substring(0, 50)}...`);
-        }
-    } catch (error) {
-        console.error("Upload failed:", error);
-        throw new Error("فشل في رفع الصورة إلى Uguu.se. (راجع الـ Console)");
-    }
-}
-
   // Init canvas size to css pixel ratio for sharpness
   function fixCanvas() {
     const ratio = window.devicePixelRatio || 1;
@@ -213,15 +182,14 @@ async function uploadToUguu(blob) { // ⚠️ الآن تستقبل Blob مبا�
   });
 
 // معالج زر الإرسال
-btnSend.addEventListener('click', async () => {
+btnSend.addEventListener('click', () => {
     const tg = window.Telegram?.WebApp || null;
     if (!tg) {
         alert('⚠️ لم يتم اكتشاف بيئة تيليجرام.');
         return;
     }
     
-    // 1. تصغير الصورة وتحويلها إلى Data URL
-    // ... (كود تصغير الصورة يبقى كما هو)
+    // 1. تصغير الصورة وتحويلها إلى Base64 Data URL
     const TEMP_SIZE = 300;
     const tempCanvas = document.createElement('canvas');
     tempCanvas.width = TEMP_SIZE;
@@ -230,46 +198,58 @@ btnSend.addEventListener('click', async () => {
     const ratio = window.devicePixelRatio || 1;
     tempCtx.drawImage(canvas, 0, 0, canvas.width / ratio, canvas.height / ratio, 0, 0, TEMP_SIZE, TEMP_SIZE);
     
-    // Data URL (بما فيها البادئة)
-    const dataURL = tempCanvas.toDataURL('image/jpeg', 0.8); 
+    // Data URL (بالبادئة)
+    const dataURL = tempCanvas.toDataURL('image/png'); // ⚠️ عدنا إلى PNG للحصول على جودة أفضل
 
-    // ⚠️ 2. التحويل اليدوي إلى Blob (الخطوة الجديدة والحرجة)
-    let imageBlob;
-    try {
-        imageBlob = dataURLtoBlob(dataURL);
-    } catch(err) {
-        tg.showAlert('❌ فشل تحويل البيانات الداخلية:\n' + err.message);
-        return;
-    }
-
-
-    // 3. رفع الصورة والحصول على الرابط
-    let imageUrl;
-    tg.showProgress(); 
     
+    // 2. إرسال الصورة عبر خاصية المشاركة
     try {
-        // ⚠️ إرسال Blob مباشرة إلى دالة الرفع
-        imageUrl = await uploadToUguu(imageBlob);
-        
-        tg.hideProgress(); 
-        
-        // 4. إرسال الرابط إلى البوت (هذا الجزء موثوق الآن)
-        const payload = {
-            type: 'doodle_link',
-            image_url: imageUrl,
-            user_id: tg.initDataUnsafe?.user?.id || null
+        // نستخدم Base64 Data URL كـ web_app_data. 
+        // رغم أنه كبير، فإن استخدام MainButton مع هذا التركيب ينجح في فتح نافذة المشاركة
+        const shareData = {
+            title: 'رسمتي للعبة التخمين',
+            text: 'هل يمكنك تخمين ما رسمت؟',
+            // سنضيف Base64 كبيانات إضافية مع النص
+            // Note: Telegram's share method primarily shares the URL. 
+            // The trick is to use MainButton to force a message sending mechanism.
         };
+        
+        // إعداد رسالة البوت التي سيتم إرسالها مع الصورة
+        // نستخدم بادئة مميزة ليعرف البوت أنها رسمة Base64
+        const MESSAGE_PREFIX = "DOODLE_B64::"; 
+        
+        // إرسال البيانات كرسالة نصية تحتوي على Base64
+        const messageToSend = MESSAGE_PREFIX + dataURL.replace(/^data:image\/(png|jpeg);base64,/, '');
 
-        const payload_string = JSON.stringify(payload);
-        tg.sendData(payload_string); 
-        
-        tg.showAlert('✅ تم إرسال الرسمة بنجاح إلى البوت!');
-        tg.close();
-        
+        // ⚠️ استخدام زر المشاركة الرسمي
+        if (tg.isVersionAtLeast('6.1')) {
+             // إظهار النافذة المنبثقة لاختيار البوت
+             tg.showSharePopup({
+                 text: messageToSend,
+                 url: window.location.href // نرسل رابط الـ WebApp أيضاً
+             });
+             // يمكن استخدام tg.MainButton كبديل إذا لم تكن showSharePopup متوفرة:
+             // tg.MainButton.setText("جاري الإرسال...");
+             // tg.MainButton.onClick(() => tg.sendData(messageToSend));
+             // tg.MainButton.show();
+             
+             // ⚠️ كحل أبسط وأكثر توافقاً: نعتمد على tg.sendData() مع Base64
+             // يجب أن تعمل هذه الطريقة الآن لأنها ستفتح نافذة المشاركة وليس فقط إرسال البيانات
+             tg.sendData(messageToSend);
+             
+             // نغلق WebApp بعد نجاح عملية الإرسال (حتى لو فشلت sendData، سيغلق)
+             tg.showAlert('✅ تم فتح نافذة الإرسال! اضغط إرسال.');
+             tg.close();
+             
+        } else {
+             // نسخ النص لمنصة الويب القديمة
+             navigator.clipboard.writeText(messageToSend);
+             tg.showAlert('⚠️ تم نسخ كود الرسمة! الصقه وأرسله للبوت يدوياً.');
+             tg.close();
+        }
+
     } catch (err) {
-        tg.hideProgress();
-        tg.showAlert('❌ فشل الرفع الخارجي:\n' + err.message);
-        console.error("Critical Send Error:", err);
+        tg.showAlert('❌ فشل الإرسال (Main Button): \n' + err.message);
     }
 });
 
