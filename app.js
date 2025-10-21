@@ -163,12 +163,17 @@
     else window.close();
   });
 
+
 // معالج زر الإرسال
 btnSend.addEventListener('click', () => {
     const tg = window.Telegram?.WebApp || null;
+    if (!tg) {
+        alert('⚠️ لم يتم اكتشاف بيئة تيليجرام.');
+        return;
+    }
     
-    // 1. تصغير الصورة وتحويلها إلى Base64 Data URL
-    const TEMP_SIZE = 150; 
+    // 1. تصغير الصورة إلى أصغر حجم وأقل جودة ممكنة (للتأكد من أنها أقل من 4KB)
+    const TEMP_SIZE = 120; // ⚠️ تصغير إضافي إلى 120x120
     const tempCanvas = document.createElement('canvas');
     tempCanvas.width = TEMP_SIZE;
     tempCanvas.height = TEMP_SIZE;
@@ -177,39 +182,30 @@ btnSend.addEventListener('click', () => {
     tempCtx.drawImage(canvas, 0, 0, canvas.width / ratio, canvas.height / ratio, 0, 0, TEMP_SIZE, TEMP_SIZE);
     
     // Data URL
-    const dataURL = tempCanvas.toDataURL('image/jpeg', 0.6); 
+    // نستخدم JPEG بجودة 0.4 أو 0.3 لتقليل الحجم قدر المستطاع.
+    const dataURL = tempCanvas.toDataURL('image/jpeg', 0.4); 
     
     // إعداد رسالة البوت (Base64 بدون البادئة)
     const MESSAGE_PREFIX = "DOODLE_B64::"; 
     const base64Image = dataURL.replace(/^data:image\/[^;]+;base64,/, '');
     const messageToSend = MESSAGE_PREFIX + base64Image;
 
-    // 2. إنشاء رابط تيليجرام للمشاركة (Share Link)
+    // 2. التحقق من طول البيانات قبل الإرسال
+    if (messageToSend.length > 4000) { // نترك هامش أمان بسيط
+         tg.showAlert(`❌ فشل: حجم الرسمة لا يزال كبيراً جداً. ${messageToSend.length} حرف.`);
+         return;
+    }
+
+    // 3. الإرسال عبر API الـ WebApp الرسمي (وهو الحل الوحيد داخل التطبيق)
     try {
-        // اسم مستخدم البوت (تأكد من أنه صحيح)
-        const BOT_USERNAME = 'unseen_mvp_games_bot'; // ⚠️ تأكد من اسم البوت
+        tg.sendData(messageToSend);
         
-        // رابط تيليجرام لفتح محادثة البوت وكتابة النص
-        const encodedMessage = encodeURIComponent(messageToSend);
+        // عند نجاح الإرسال، سيتم إغلاق الـ WebApp
+        tg.showAlert('✅ تم إرسال الرسمة بنجاح إلى البوت!');
         
-        // الرابط الذي سيفتح نافذة المشاركة
-        const shareLink = `https://t.me/${BOT_USERNAME}?text=${encodedMessage}`;
-
-        // ⚠️ يجب استخدام tg.openTelegramLink() لفتح الروابط داخل WebApp
-        if (tg) {
-            // نغلق الـ WebApp أولاً
-            tg.close(); 
-            // ثم نفتح رابط تيليجرام الذي سيفتح نافذة الرسالة الجديدة
-            tg.openTelegramLink(shareLink);
-            
-        } else {
-            // هذا ليعمل على المتصفحات العادية
-            window.open(shareLink, '_blank'); 
-            alert('✅ تم فتح نافذة الإرسال في تيليجرام! اضغط إرسال.');
-        }
-
     } catch (err) {
-        if (tg) tg.showAlert('❌ فشل الإرسال عبر رابط المشاركة:\n' + err.message);
+        // سيحدث هذا الخطأ إذا كان الحجم لا يزال كبيراً
+        tg.showAlert('❌ فشل الإرسال (WebAppDataInvalid):\n ربما حجم الصورة كبير جداً.');
         console.error("Critical Send Error:", err);
     }
 });
