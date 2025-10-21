@@ -165,50 +165,40 @@
 
 
 // معالج زر الإرسال
-btnSend.addEventListener('click', () => {
-    const tg = window.Telegram?.WebApp || null;
-    if (!tg) {
-        alert('⚠️ لم يتم اكتشاف بيئة تيليجرام.');
-        return;
-    }
-    
-    // 1. تصغير الصورة إلى أصغر حجم وأقل جودة ممكنة (للتأكد من أنها أقل من 4KB)
-    const TEMP_SIZE = 400; // ⚠️ تصغير إضافي إلى 120x120
-    const tempCanvas = document.createElement('canvas');
-    tempCanvas.width = TEMP_SIZE;
-    tempCanvas.height = TEMP_SIZE;
-    const tempCtx = tempCanvas.getContext('2d');
-    const ratio = window.devicePixelRatio || 1;
-    tempCtx.drawImage(canvas, 0, 0, canvas.width / ratio, canvas.height / ratio, 0, 0, TEMP_SIZE, TEMP_SIZE);
-    
-    // Data URL
-    // نستخدم JPEG بجودة 0.4 أو 0.3 لتقليل الحجم قدر المستطاع.
-    const dataURL = tempCanvas.toDataURL('image/jpeg', 1); 
-    
-    // إعداد رسالة البوت (Base64 بدون البادئة)
-    const MESSAGE_PREFIX = "DOODLE_B64::"; 
-    const base64Image = dataURL.replace(/^data:image\/[^;]+;base64,/, '');
-    const messageToSend = MESSAGE_PREFIX + base64Image;
+const MAX_SIZE = 512; // أقصى بعد للصورة (يمكنك رفعه إلى 720 حسب الحاجة)
+const ratio = Math.min(MAX_SIZE / canvas.width, MAX_SIZE / canvas.height, 1);
+const newW = canvas.width * ratio;
+const newH = canvas.height * ratio;
 
-    // 2. التحقق من طول البيانات قبل الإرسال
-    if (messageToSend.length < 0) { // نترك هامش أمان بسيط
-         tg.showAlert(`❌ فشل: حجم الرسمة لا يزال كبيراً جداً. ${messageToSend.length} حرف.`);
-         return;
-    }
+const tempCanvas = document.createElement('canvas');
+tempCanvas.width = newW;
+tempCanvas.height = newH;
+const tempCtx = tempCanvas.getContext('2d');
 
-    // 3. الإرسال عبر API الـ WebApp الرسمي (وهو الحل الوحيد داخل التطبيق)
-    try {
-        tg.sendData(messageToSend);
-        
-        // عند نجاح الإرسال، سيتم إغلاق الـ WebApp
-        tg.showAlert('✅ تم إرسال الرسمة بنجاح إلى البوت!');
-        
-    } catch (err) {
-        // سيحدث هذا الخطأ إذا كان الحجم لا يزال كبيراً
-        tg.showAlert('❌ فشل الإرسال (WebAppDataInvalid):\n ربما حجم الصورة كبير جداً.');
-        console.error("Critical Send Error:", err);
-    }
-});
+// خلفية بيضاء (لمنع الخلفية السوداء في JPEG)
+tempCtx.fillStyle = "#fff";
+tempCtx.fillRect(0, 0, newW, newH);
+
+// رسم الصورة مصغرة بشكل متناسق
+tempCtx.drawImage(canvas, 0, 0, newW, newH);
+
+// 2. تحويلها إلى Base64 مضغوطة
+// جرب جودة بين 0.6 و0.8 للتوازن بين الحجم والدقة
+const dataURL = tempCanvas.toDataURL('image/jpeg', 0.7);
+
+// 3. تجهيز الرسالة
+const MESSAGE_PREFIX = "DOODLE_B64::";
+const base64Image = dataURL.replace(/^data:image\/[^;]+;base64,/, '');
+const messageToSend = MESSAGE_PREFIX + base64Image;
+
+// 4. إرسالها
+try {
+    tg.sendData(messageToSend);
+    tg.showAlert('✅ تم إرسال الرسمة بنجاح إلى البوت!');
+} catch (err) {
+    tg.showAlert('❌ فشل الإرسال. ربما حجم الصورة كبير جداً.');
+    console.error("Critical Send Error:", err);
+}
 
   // Initialize: read init data if available
   try {
@@ -241,6 +231,7 @@ btnSend.addEventListener('click', () => {
   }
 
 })();
+
 
 
 
