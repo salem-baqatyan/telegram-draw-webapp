@@ -190,7 +190,7 @@ btnSend.addEventListener('click', () => {
     }
     
     // 1. تصغير الصورة إلى حجم جذري لتقليل Base64
-    const TEMP_SIZE = 500; // ⚠️ تصغير إضافي
+    const TEMP_SIZE = 150; // ⚠️ تصغير إضافي
     const tempCanvas = document.createElement('canvas');
     tempCanvas.width = TEMP_SIZE;
     tempCanvas.height = TEMP_SIZE;
@@ -199,7 +199,7 @@ btnSend.addEventListener('click', () => {
     tempCtx.drawImage(canvas, 0, 0, canvas.width / ratio, canvas.height / ratio, 0, 0, TEMP_SIZE, TEMP_SIZE);
     
     // Data URL
-    const dataURL = tempCanvas.toDataURL('image/jpeg', 0.9); // ⚠️ استخدام JPEG بجودة أقل
+    const dataURL = tempCanvas.toDataURL('image/jpeg', 0.6); // ⚠️ استخدام JPEG بجودة أقل
     
     // إعداد رسالة البوت (Base64 بدون البادئة)
     const MESSAGE_PREFIX = "DOODLE_B64::"; 
@@ -265,3 +265,4 @@ btnSend.addEventListener('click', () => {
   }
 
 })();
+
