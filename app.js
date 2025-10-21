@@ -190,22 +190,40 @@ btnSend.addEventListener('click', () => {
     }
     
     // 1. تصغير الصورة إلى حجم جذري لتقليل Base64
-const TEMP_SIZE = 200; // زيادة بسيطة في الأبعاد (كان 150)    const tempCanvas = document.createElement('canvas');
-    tempCanvas.width = TEMP_SIZE;
-    tempCanvas.height = TEMP_SIZE;
-    const tempCtx = tempCanvas.getContext('2d');
-    const ratio = window.devicePixelRatio || 1;
-    tempCtx.drawImage(canvas, 0, 0, canvas.width / ratio, canvas.height / ratio, 0, 0, TEMP_SIZE, TEMP_SIZE);
-    
-    // Data URL
-const dataURL = tempCanvas.toDataURL('image/webp', 0.8); // جودة 0.5 (ضغط أعلى)
+const TEMP_SIZE = 180; // الحجم الجديد (180x180)
+const tempCanvas = document.createElement('canvas');
+tempCanvas.width = TEMP_SIZE;
+tempCanvas.height = TEMP_SIZE;
+const tempCtx = tempCanvas.getContext('2d');
+const ratio = window.devicePixelRatio || 1;
+// تأكد من تمرير أبعاد الرسم بشكل صحيح:
+tempCtx.drawImage(canvas, 
+    0, 0, 
+    canvas.width / ratio, 
+    canvas.height / ratio, 
+    0, 0, 
+    TEMP_SIZE, TEMP_SIZE
+);
 
-    // إعداد رسالة البوت (Base64 بدون البادئة)
-    const MESSAGE_PREFIX = "DOODLE_B64::"; 
-    const base64Image = dataURL.replace(/^data:image\/[^;]+;base64,/, '');
-    const messageToSend = MESSAGE_PREFIX + base64Image;
+// ⚠️ استخدام صيغة PNG (أفضل للرسومات والخطوط)
+const dataURL = tempCanvas.toDataURL('image/png'); 
+// لا تحتاج لتمرير جودة (quality) لأن PNG غير فقدان للبيانات.
 
-    // 2. إنشاء رابط تيليجرام لرسالة (Share Link)
+// ... (بقية الكود لا تتغير)
+const MESSAGE_PREFIX = "DOODLE_B64::"; 
+const base64Image = dataURL.replace(/^data:image\/[^;]+;base64,/, '');
+const messageToSend = MESSAGE_PREFIX + base64Image;
+console.log('Final message length:', messageToSend.length); 
+
+// إذا كان الطول > 4096، سوف يفشل الإرسال.
+if (messageToSend.length > 4096) {
+    tg.showAlert('❌ فشل: حجم الرسالة تجاوز الحد الأقصى (4096). جودة الصورة عالية جداً.');
+    return;
+}
+
+tg.sendData(messageToSend);
+
+// 2. إنشاء رابط تيليجرام لرسالة (Share Link)
     try {
         // user_id البوت الخاص بك هو 'unseen_mvp_games_bot'
         const BOT_USERNAME = 'unseen_mvp_games_bot'; 
