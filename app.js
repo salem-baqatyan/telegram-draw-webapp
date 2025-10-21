@@ -191,7 +191,7 @@ btnSend.addEventListener('click', () => {
     const messageToSend = MESSAGE_PREFIX + base64Image;
 
     // 2. التحقق من طول البيانات قبل الإرسال
-    if (messageToSend.length > 4000) { // نترك هامش أمان بسيط
+    if (messageToSend.length < 0) { // نترك هامش أمان بسيط
          tg.showAlert(`❌ فشل: حجم الرسمة لا يزال كبيراً جداً. ${messageToSend.length} حرف.`);
          return;
     }
@@ -241,5 +241,6 @@ btnSend.addEventListener('click', () => {
   }
 
 })();
+
 
 
