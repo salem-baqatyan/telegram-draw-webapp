@@ -189,8 +189,8 @@ btnSend.addEventListener('click', () => {
         return;
     }
     
-    // 1. تصغير الصورة وتحويلها إلى Base64 Data URL
-    const TEMP_SIZE = 300;
+    // 1. تصغير الصورة إلى حجم جذري لتقليل Base64
+    const TEMP_SIZE = 150; // ⚠️ تصغير إضافي
     const tempCanvas = document.createElement('canvas');
     tempCanvas.width = TEMP_SIZE;
     tempCanvas.height = TEMP_SIZE;
@@ -198,58 +198,39 @@ btnSend.addEventListener('click', () => {
     const ratio = window.devicePixelRatio || 1;
     tempCtx.drawImage(canvas, 0, 0, canvas.width / ratio, canvas.height / ratio, 0, 0, TEMP_SIZE, TEMP_SIZE);
     
-    // Data URL (بالبادئة)
-    const dataURL = tempCanvas.toDataURL('image/png'); // ⚠️ عدنا إلى PNG للحصول على جودة أفضل
-
+    // Data URL
+    const dataURL = tempCanvas.toDataURL('image/jpeg', 0.6); // ⚠️ استخدام JPEG بجودة أقل
     
-    // 2. إرسال الصورة عبر خاصية المشاركة
+    // إعداد رسالة البوت (Base64 بدون البادئة)
+    const MESSAGE_PREFIX = "DOODLE_B64::"; 
+    const base64Image = dataURL.replace(/^data:image\/[^;]+;base64,/, '');
+    const messageToSend = MESSAGE_PREFIX + base64Image;
+
+    // 2. إنشاء رابط تيليجرام لرسالة (Share Link)
     try {
-        // نستخدم Base64 Data URL كـ web_app_data. 
-        // رغم أنه كبير، فإن استخدام MainButton مع هذا التركيب ينجح في فتح نافذة المشاركة
-        const shareData = {
-            title: 'رسمتي للعبة التخمين',
-            text: 'هل يمكنك تخمين ما رسمت؟',
-            // سنضيف Base64 كبيانات إضافية مع النص
-            // Note: Telegram's share method primarily shares the URL. 
-            // The trick is to use MainButton to force a message sending mechanism.
-        };
+        // user_id البوت الخاص بك هو 'unseen_mvp_games_bot'
+        const BOT_USERNAME = 'unseen_mvp_games_bot'; 
         
-        // إعداد رسالة البوت التي سيتم إرسالها مع الصورة
-        // نستخدم بادئة مميزة ليعرف البوت أنها رسمة Base64
-        const MESSAGE_PREFIX = "DOODLE_B64::"; 
+        // رابط تيليجرام لفتح محادثة البوت وكتابة النص
+        // URL-encode النص بالكامل
+        const encodedMessage = encodeURIComponent(messageToSend);
         
-        // إرسال البيانات كرسالة نصية تحتوي على Base64
-        const messageToSend = MESSAGE_PREFIX + dataURL.replace(/^data:image\/(png|jpeg);base64,/, '');
+        // الرابط الذي سيفتح نافذة المشاركة (المحاورات القديمة)
+        const shareLink = `https://t.me/${BOT_USERNAME}?text=${encodedMessage}`;
 
-        // ⚠️ استخدام زر المشاركة الرسمي
-        if (tg.isVersionAtLeast('6.1')) {
-             // إظهار النافذة المنبثقة لاختيار البوت
-             tg.showSharePopup({
-                 text: messageToSend,
-                 url: window.location.href // نرسل رابط الـ WebApp أيضاً
-             });
-             // يمكن استخدام tg.MainButton كبديل إذا لم تكن showSharePopup متوفرة:
-             // tg.MainButton.setText("جاري الإرسال...");
-             // tg.MainButton.onClick(() => tg.sendData(messageToSend));
-             // tg.MainButton.show();
-             
-             // ⚠️ كحل أبسط وأكثر توافقاً: نعتمد على tg.sendData() مع Base64
-             // يجب أن تعمل هذه الطريقة الآن لأنها ستفتح نافذة المشاركة وليس فقط إرسال البيانات
-             tg.sendData(messageToSend);
-             
-             // نغلق WebApp بعد نجاح عملية الإرسال (حتى لو فشلت sendData، سيغلق)
-             tg.showAlert('✅ تم فتح نافذة الإرسال! اضغط إرسال.');
-             tg.close();
-             
-        } else {
-             // نسخ النص لمنصة الويب القديمة
-             navigator.clipboard.writeText(messageToSend);
-             tg.showAlert('⚠️ تم نسخ كود الرسمة! الصقه وأرسله للبوت يدوياً.');
-             tg.close();
-        }
+        // ⚠️ إغلاق الـ WebApp قبل إعادة التوجيه لضمان عدم وجود مشكلة في الـ Webview
+        tg.close();
 
+        // 3. فتح الرابط
+        // نستخدم نافذة عادية لفتح الرابط، وهذا سيتسبب في فتح تطبيق تيليجرام.
+        window.open(shareLink, '_blank'); 
+
+        // بما أننا أغلقنا الـ WebApp، سنظهر إشعارًا بسيطًا هنا قبل الإغلاق (اختياري)
+        // tg.showAlert('✅ جاري تحويلك إلى نافذة الإرسال! اضغط إرسال.');
+        
     } catch (err) {
-        tg.showAlert('❌ فشل الإرسال (Main Button): \n' + err.message);
+        // في حال فشل أي شيء (وهو نادر هنا)
+        tg.showAlert('❌ فشل الإرسال عبر رابط المشاركة:\n' + err.message);
     }
 });
 
