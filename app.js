@@ -174,17 +174,30 @@ btnSend.addEventListener('click', () => {
     }
     
     // 1. تصغير الصورة إلى أصغر حجم وأقل جودة ممكنة (للتأكد من أنها أقل من 4KB)
-    const TEMP_SIZE = 400; // ⚠️ تصغير إضافي إلى 120x120
-    const tempCanvas = document.createElement('canvas');
-    tempCanvas.width = TEMP_SIZE;
-    tempCanvas.height = TEMP_SIZE;
-    const tempCtx = tempCanvas.getContext('2d');
-    const ratio = window.devicePixelRatio || 1;
-    tempCtx.drawImage(canvas, 0, 0, canvas.width / ratio, canvas.height / ratio, 0, 0, TEMP_SIZE, TEMP_SIZE);
-    
-    // Data URL
-    // نستخدم JPEG بجودة 0.4 أو 0.3 لتقليل الحجم قدر المستطاع.
-    const dataURL = tempCanvas.toDataURL('image/jpeg', 1); 
+const MAX_SIZE = 512; // حجم ثابت معقول للصورة المرسلة
+const ratio = window.devicePixelRatio || 1;
+const originalWidth = canvas.width / ratio;
+const originalHeight = canvas.height / ratio;
+
+// نضبط الأبعاد للحفاظ على التناسب بدون قص
+let newWidth = originalWidth;
+let newHeight = originalHeight;
+if (Math.max(originalWidth, originalHeight) > MAX_SIZE) {
+  const scale = MAX_SIZE / Math.max(originalWidth, originalHeight);
+  newWidth = originalWidth * scale;
+  newHeight = originalHeight * scale;
+}
+
+const tempCanvas = document.createElement('canvas');
+tempCanvas.width = newWidth;
+tempCanvas.height = newHeight;
+const tempCtx = tempCanvas.getContext('2d');
+
+// نرسم الصورة كاملة بدون اقتطاع وبجودة أفضل
+tempCtx.drawImage(canvas, 0, 0, originalWidth, originalHeight, 0, 0, newWidth, newHeight);
+
+// نستخدم جودة JPEG متوسطة (0.85) للحفاظ على التفاصيل والوضوح
+const dataURL = tempCanvas.toDataURL('image/jpeg', 0.85);
     
     // إعداد رسالة البوت (Base64 بدون البادئة)
     const MESSAGE_PREFIX = "DOODLE_B64::"; 
@@ -242,3 +255,4 @@ btnSend.addEventListener('click', () => {
   }
 
 })();
+
