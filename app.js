@@ -173,7 +173,7 @@ btnSend.addEventListener('click', () => {
     }
     
     // 1. تصغير الصورة إلى أصغر حجم وأقل جودة ممكنة (للتأكد من أنها أقل من 4KB)
-    const TEMP_SIZE = 120; // ⚠️ تصغير إضافي إلى 120x120
+    const TEMP_SIZE = 400; // ⚠️ تصغير إضافي إلى 120x120
     const tempCanvas = document.createElement('canvas');
     tempCanvas.width = TEMP_SIZE;
     tempCanvas.height = TEMP_SIZE;
@@ -241,4 +241,5 @@ btnSend.addEventListener('click', () => {
   }
 
 })();
+
 
