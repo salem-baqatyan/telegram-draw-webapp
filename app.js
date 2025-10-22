@@ -170,47 +170,70 @@
 // معالج زر الإرسال
 btnSend.addEventListener('click', () => {
     const tg = window.Telegram?.WebApp || null;
-    // if (!tg) {
-    //     alert('⚠️ لم يتم اكتشاف بيئة تيليجرام.');
-    //     return;
-    // }
+    if (!tg) {
+        alert('⚠️ لم يتم اكتشاف بيئة تيليجرام.');
+        return;
+    }
+
+    // ⚠️ مفتاح API الخاص بك من ImgBB
+    const IMGBB_API_KEY = "adcb6daec9bef4d4e64dc34f2f8ca568"; // استبدل هنا!
     
-    // 1. تصغير الصورة إلى أصغر حجم وأقل جودة ممكنة (للتأكد من أنها أقل من 4KB)
-    const TEMP_SIZE = 120; // ⚠️ تصغير إضافي إلى 120x120
-    const tempCanvas = document.createElement('canvas');
-    tempCanvas.width = TEMP_SIZE;
-    tempCanvas.height = TEMP_SIZE;
-    const tempCtx = tempCanvas.getContext('2d');
+    // 1. استخراج الصورة بجودة جيدة (لن نحتاج إلى التصغير الجذري بعد الآن!)
+    // يمكنك العودة إلى أبعاد اللوحة الأصلية وجودة أعلى
     const ratio = window.devicePixelRatio || 1;
-    tempCtx.drawImage(canvas, 0, 0, canvas.width / ratio, canvas.height / ratio, 0, 0, TEMP_SIZE, TEMP_SIZE);
-    
-    // Data URL
-    // نستخدم JPEG بجودة 0.4 أو 0.3 لتقليل الحجم قدر المستطاع.
-    const dataURL = tempCanvas.toDataURL('image/jpeg', 0.4); 
+    // يمكنك تجربة PNG أو JPEG بجودة 0.8 للحصول على صورة جيدة
+    const dataURL = canvas.toDataURL('image/jpeg', 0.8); 
     
     // إعداد رسالة البوت (Base64 بدون البادئة)
-    const MESSAGE_PREFIX = "DOODLE_B64::"; 
     const base64Image = dataURL.replace(/^data:image\/[^;]+;base64,/, '');
-    const messageToSend = MESSAGE_PREFIX + base64Image;
 
-    // 2. التحقق من طول البيانات قبل الإرسال
-    if (messageToSend.length > 4000) { // نترك هامش أمان بسيط
-         tg.showAlert(`❌ فشل: حجم الرسمة لا يزال كبيراً جداً. ${messageToSend.length} حرف.`);
-         return;
-    }
+    // 2. إظهار حالة التحميل للمستخدم
+    tg.MainButton.setText('جاري الرفع...').show().disable();
+    tg.HapticFeedback.impactOccurred('medium');
 
-    // 3. الإرسال عبر API الـ WebApp الرسمي (وهو الحل الوحيد داخل التطبيق)
-    try {
-        tg.sendData(messageToSend);
-        
-        // عند نجاح الإرسال، سيتم إغلاق الـ WebApp
-        tg.showAlert('✅ تم إرسال الرسمة بنجاح إلى البوت!');
-        
-    } catch (err) {
-        // سيحدث هذا الخطأ إذا كان الحجم لا يزال كبيراً
-        tg.showAlert('❌ فشل الإرسال (WebAppDataInvalid):\n ربما حجم الصورة كبير جداً.');
-        console.error("Critical Send Error:", err);
-    }
+    // 3. إرسال طلب POST لرفع الصورة إلى ImgBB
+    fetch(`https://api.imgbb.com/1/upload?key=${IMGBB_API_KEY}`, {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/x-www-form-urlencoded'
+        },
+        // Base64 يجب أن يُرسل كـ string في الفورم داتا
+        body: `image=${encodeURIComponent(base64Image)}`
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.success) {
+            const imageUrl = data.data.url;
+            
+            // 4. بعد الرفع الناجح، نرسل رابط الصورة (نص قصير) إلى البوت
+            const MESSAGE_PREFIX = "DOODLE_URL::"; // ⚠️ بادئة جديدة
+            const messageToSend = MESSAGE_PREFIX + imageUrl;
+
+            if (messageToSend.length > 4000) {
+                 tg.showAlert('❌ فشل: الرابط الناتج طويل جداً بشكل غير متوقع.');
+                 return;
+            }
+
+            // الإرسال عبر API الـ WebApp الرسمي (سينجح لأن الرابط قصير)
+            tg.sendData(messageToSend);
+            
+            // عند نجاح الإرسال، سيتم إغلاق الـ WebApp
+            // (رسالة النجاح ستظهر للحظة قصيرة قبل الإغلاق)
+            tg.showAlert('✅ تم إرسال الرابط بنجاح إلى البوت!');
+            
+        } else {
+            tg.showAlert('❌ فشل الرفع إلى ImgBB: ' + data.error.message);
+        }
+    })
+    .catch(error => {
+        tg.showAlert('❌ خطأ في الاتصال بالخادم (ImgBB): ' + error.message);
+        console.error("Fetch Error:", error);
+    })
+    .finally(() => {
+        // إزالة حالة التحميل
+        tg.MainButton.hide();
+        tg.enableClosingConfirmation(); // إذا كنت تستخدمها
+    });
 });
 
 
