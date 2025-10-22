@@ -170,10 +170,10 @@
 // معالج زر الإرسال
 btnSend.addEventListener('click', () => {
     const tg = window.Telegram?.WebApp || null;
-    if (!tg) {
-        alert('⚠️ لم يتم اكتشاف بيئة تيليجرام.');
-        return;
-    }
+    // if (!tg) {
+    //     alert('⚠️ لم يتم اكتشاف بيئة تيليجرام.');
+    //     return;
+    // }
     
     // 1. تصغير الصورة إلى أصغر حجم وأقل جودة ممكنة (للتأكد من أنها أقل من 4KB)
     const TEMP_SIZE = 120; // ⚠️ تصغير إضافي إلى 120x120
