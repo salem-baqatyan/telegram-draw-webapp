@@ -175,65 +175,15 @@ btnSend.addEventListener('click', () => {
         return;
     }
 
-    // ⚠️ مفتاح API الخاص بك من ImgBB
-    const IMGBB_API_KEY = "adcb6daec9bef4d4e64dc34f2f8ca568"; // استبدل هنا!
-    
-    // 1. استخراج الصورة بجودة جيدة (لن نحتاج إلى التصغير الجذري بعد الآن!)
-    // يمكنك العودة إلى أبعاد اللوحة الأصلية وجودة أعلى
-    const ratio = window.devicePixelRatio || 1;
-    // يمكنك تجربة PNG أو JPEG بجودة 0.8 للحصول على صورة جيدة
-    const dataURL = canvas.toDataURL('image/jpeg', 0.8); 
-    
-    // إعداد رسالة البوت (Base64 بدون البادئة)
+    // استخراج الصورة بصيغة JPEG مضغوطة (أو PNG لو تفضل)
+    const dataURL = canvas.toDataURL('image/jpeg', 0.8);
     const base64Image = dataURL.replace(/^data:image\/[^;]+;base64,/, '');
 
-    // 2. إظهار حالة التحميل للمستخدم
-    tg.MainButton.setText('جاري الرفع...').show().disable();
-    tg.HapticFeedback.impactOccurred('medium');
+    // نضيف بادئة جديدة لتمييز نوع البيانات
+    const MESSAGE_PREFIX = "DOODLE_BASE64::";
+    tg.sendData(MESSAGE_PREFIX + base64Image);
 
-    // 3. إرسال طلب POST لرفع الصورة إلى ImgBB
-    fetch(`https://api.imgbb.com/1/upload?key=${IMGBB_API_KEY}`, {
-        method: 'POST',
-        headers: {
-            'Content-Type': 'application/x-www-form-urlencoded'
-        },
-        // Base64 يجب أن يُرسل كـ string في الفورم داتا
-        body: `image=${encodeURIComponent(base64Image)}`
-    })
-    .then(response => response.json())
-    .then(data => {
-        if (data.success) {
-            const imageUrl = data.data.url;
-            
-            // 4. بعد الرفع الناجح، نرسل رابط الصورة (نص قصير) إلى البوت
-            const MESSAGE_PREFIX = "DOODLE_URL::"; // ⚠️ بادئة جديدة
-            const messageToSend = MESSAGE_PREFIX + imageUrl;
-
-            if (messageToSend.length > 4000) {
-                 tg.showAlert('❌ فشل: الرابط الناتج طويل جداً بشكل غير متوقع.');
-                 return;
-            }
-
-            // الإرسال عبر API الـ WebApp الرسمي (سينجح لأن الرابط قصير)
-            tg.sendData(messageToSend);
-            
-            // عند نجاح الإرسال، سيتم إغلاق الـ WebApp
-            // (رسالة النجاح ستظهر للحظة قصيرة قبل الإغلاق)
-            tg.showAlert('✅ تم إرسال الرابط بنجاح إلى البوت!');
-            
-        } else {
-            tg.showAlert('❌ فشل الرفع إلى ImgBB: ' + data.error.message);
-        }
-    })
-    .catch(error => {
-        tg.showAlert('❌ خطأ في الاتصال بالخادم (ImgBB): ' + error.message);
-        console.error("Fetch Error:", error);
-    })
-    .finally(() => {
-        // إزالة حالة التحميل
-        tg.MainButton.hide();
-        tg.enableClosingConfirmation(); // إذا كنت تستخدمها
-    });
+    tg.showAlert('✅ تم إرسال الرسم مباشرة إلى البوت!');
 });
 
 
