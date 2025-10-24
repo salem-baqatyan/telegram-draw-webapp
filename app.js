@@ -773,13 +773,24 @@ if (brushCircle) {
         colorIconSpan.style.color = brushColor;
     }
     // تهيئة Telegram WebApp وعرض الكلمة
-    try {
+try {
         if (tg) {
             tg.expand && tg.expand();
             const params = new URLSearchParams(window.location.search);
             let startWord = 'فطيرة ⚙️'; 
             if (params.has('word')) startWord = params.get('word');
             if (wordBox) wordBox.innerHTML = `${startWord} ⚙️`;
+
+            // 🆕 إضافة منطق التصغير الشرطي هنا 
+            // ----------------------------------------------------
+            const canvasContainer = document.querySelector('.canvas-container');
+            if (canvasContainer) {
+                 // التحقق من أننا نعمل داخل التيليجرام 
+                 // (عادةً ما يتم التحقق من وجود tg.WebApp)
+                canvasContainer.classList.add('tg-scaled');
+            }
+            // ----------------------------------------------------
+
         }
     } catch(e){
         console.warn('init error', e);
