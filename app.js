@@ -87,7 +87,7 @@ function updateShapeIcon(shapeType) {
     function fixCanvas() {
         const ratio = window.devicePixelRatio || 1;
         // نستخدم الأبعاد الثابتة 800x800 كما هي محددة في HTML
-        const size = 800; 
+        const size = 500; 
 
         // ضبط الأبعاد الحقيقية للـ mainCanvas
         mainCanvas.width = size * ratio;
@@ -268,31 +268,18 @@ function floodFill(startX, startY) {
 
     // الحصول على موقع الماوس/اللمس
 function getPos(e) {
-        const rect = tempCanvas.getBoundingClientRect();
-        const clientX = e.touches ? e.touches[0].clientX : e.clientX;
-        const clientY = e.touches ? e.touches[0].clientY : e.clientY;
-        
-        // الإحداثيات بالنسبة لحجم العرض (CSS Pixels)
-        const xClient = clientX - rect.left;
-        const yClient = clientY - rect.top;
-        
-        // 🎯 التصحيح الأساسي: حساب نسبة التحجيم 
-        // نقوم بتقسيم العرض الفعلي للـ Canvas (800) على عرض العرض (CSS)
-        const scaleX = mainCanvas.width / (rect.width * (window.devicePixelRatio || 1));
-        const scaleY = mainCanvas.height / (rect.height * (window.devicePixelRatio || 1));
-
-        // 🎯 تطبيق التصحيح: ضرب إحداثيات العرض بنسبة التحجيم
-        const xCanvas = xClient * scaleX;
-        const yCanvas = yClient * scaleY;
-        
-        // 🎯 العودة إلى إحداثيات CSS المصححة (حجم 800) قبل تطبيق ratio
-        const ratio = window.devicePixelRatio || 1;
-        return { 
-            // نقسم على ratio لإعطاء إحداثيات الـ Canvas المصححة (800x800)
-            x: xCanvas / ratio, 
-            y: yCanvas / ratio 
-        };
-    }
+    // نستخدم tempCanvas لأنها هي التي تستقبل الأحداث
+    const rect = tempCanvas.getBoundingClientRect(); 
+    const clientX = e.touches ? e.touches[0].clientX : e.clientX;
+    const clientY = e.touches ? e.touches[0].clientY : e.clientY;
+    
+    // إحداثيات CSS غير المصححة
+    const x = clientX - rect.left;
+    const y = clientY - rect.top;
+    
+    // 🎯 العودة إلى إحداثيات CSS التي يجب أن تستخدم في دالة الرسم
+    return { x, y }; 
+}
 
 // بدء الرسم (Mouse Down / Touch Start)
 function startDraw(e) {
@@ -300,13 +287,6 @@ function startDraw(e) {
 
     if (tool === 'fill') {
         const pos = getPos(e);
-        const rect = tempCanvas.getBoundingClientRect();
-        const canvasActualWidth = 800;
-        const canvasRenderedWidth = rect.width;
-
-        const xCanvas = pos.x * (canvasActualWidth / canvasRenderedWidth);
-        const yCanvas = pos.y * (canvasActualWidth / canvasRenderedWidth); 
-        
         floodFill(pos.x, pos.y);        
         e.preventDefault();
         return; 
@@ -332,12 +312,12 @@ function startDraw(e) {
     mainContext.lineCap = 'round';
     mainContext.lineJoin = 'round';
     // 🎯 ملاحظة: brushSize * 1.5 هو عامل تصحيح الحجم الذي تستخدمه
-    mainContext.lineWidth = brushSize * 1.5; 
+    mainContext.lineWidth = brushSize; 
     mainContext.globalAlpha = brushOpacity;
     
     tempContext.lineCap = 'round';
     tempContext.lineJoin = 'round';
-    tempContext.lineWidth = brushSize * 1.5; 
+    tempContext.lineWidth = brushSize; 
     tempContext.globalAlpha = brushOpacity;
 
     // 2. منطق المسح (Eraser)
@@ -437,7 +417,7 @@ if (tool === 'shape') {
     
     mainContext.lineCap = 'round';
     mainContext.lineJoin = 'round';
-    mainContext.lineWidth = brushSize * 1.5;
+    mainContext.lineWidth = brushSize;
     mainContext.globalAlpha = brushOpacity;
     
     if (tool === 'eraser') {
@@ -460,7 +440,7 @@ if (tool === 'shape') {
     
     tempContext.lineCap = 'round';
     tempContext.lineJoin = 'round';
-    tempContext.lineWidth = brushSize* 1.4;
+    tempContext.lineWidth = brushSize;
     
     // 🎯 التعديل الحاسم: تعيين اللون الأبيض بشكل قسري للممحاة هنا
     tempContext.globalAlpha = brushOpacity;
@@ -489,7 +469,7 @@ function drawShape(ctx, startX, startY, endX, endY, shapeType) {
     ctx.lineJoin = 'miter'; 
     
     // تطبيق إعدادات الفرشاة (باستخدام عامل التصحيح 1.5)
-    ctx.lineWidth = brushSize * 1.5; 
+    ctx.lineWidth = brushSize; 
     ctx.strokeStyle = brushColor;
     ctx.globalAlpha = brushOpacity;
     
