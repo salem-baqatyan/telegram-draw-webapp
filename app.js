@@ -777,7 +777,7 @@ try {
         if (tg) {
             tg.expand && tg.expand();
             const params = new URLSearchParams(window.location.search);
-            let startWord = 'تست ⚙️'; 
+            let startWord = 'فطيرة ⚙️'; 
             if (params.has('word')) startWord = params.get('word');
             if (wordBox) wordBox.innerHTML = `${startWord} ⚙️`;
 
