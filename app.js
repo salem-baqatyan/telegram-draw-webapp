@@ -1,21 +1,21 @@
 // app.js
-
-/**
- * وظائف لوحة الرسم مع دمج Telegram WebApp
- * (تم تكييفه بناءً على نموذجك وربطه بـ IDs تصميمك)
- */
 (() => {
     // #1. تهيئة Telegram WebApp
-const tg = (function() {
-    // بعض منصات Telegram تضع window.Telegram.WebApp
-    // وبعض البيئات قد تضع window.Telegram مباشرة (نادراً) — نغطي الحالتين
-    if (typeof window !== 'undefined') {
-        if (window.Telegram && window.Telegram.WebApp) return window.Telegram.WebApp;
-        if (window.Telegram) return window.Telegram; // fallback نادر
-    }
-    return null;
-})();
-console.log('DEBUG: window.Telegram exists?', !!window.Telegram, 'window.Telegram.WebApp exists?', !!(window.Telegram && window.Telegram.WebApp), 'tg var:', tg);
+function waitForTelegramWebApp(callback, tries = 10) {
+  if (window.Telegram?.WebApp) {
+    callback(window.Telegram.WebApp);
+  } else if (tries > 0) {
+    setTimeout(() => waitForTelegramWebApp(callback, tries - 1), 300);
+  } else {
+    alert("⚠️ لم يتم اكتشاف بيئة تيليجرام. افتح الرابط من زر البوت في التطبيق الرسمي.");
+  }
+}
+
+waitForTelegramWebApp((tg) => {
+  // هنا ضع بقية كودك الذي يعتمد على tg
+  console.log("✅ Telegram WebApp جاهز:", tg);
+});
+
 // #2. محددات DOM
     const mainCanvas = document.getElementById('mainCanvas');
     const tempCanvas = document.getElementById('tempCanvas'); 
