@@ -497,77 +497,49 @@ function drawShape(ctx, startX, startY, endX, endY, shapeType) {
 // #6. وظيفة الإرسال إلى Telegram (مربوطة بزر الحفظ)
 // ****************************
 function sendToTelegram() {
-    // ⚠️ نستخدم 'tg' المعرف في النطاق الخارجي (الجزء #1)
-    const tgNow = window.Telegram?.WebApp || window.Telegram || null;
-
-    if (!tgNow || typeof tgNow.sendData !== 'function') {
-        console.warn('Telegram WebApp not available at click time. tgNow:', tgNow);
-        // إعلام المستخدم بطريقة مفيدة
-        alert('⚠️ لم يتم اكتشاف بيئة Telegram WebApp هنا. افتح هذه الصفحة من داخل تطبيق Telegram عبر زر "فتح لوحة الرسم" في محادثة البوت (التطبيق الرسمي).');
-        return;
-    }
-
-    // اختيار الـ canvas الصحيح — إذا كانت لوحتك الرئيسية id="mainCanvas" استخدمها،
-    // وإلا استبدل 'mainCanvas' بـ 'canvas' أو العنصر الذي تستخدمه.
     const canvasEl = document.getElementById('mainCanvas') || document.getElementById('canvas');
     if (!canvasEl) {
-        console.error('No canvas element found (tried mainCanvas and canvas).');
-        alert('خطأ داخلي: لم يتم العثور على عنصر اللوحة.');
+        alert('❌ لم يتم العثور على اللوحة (canvas)!');
         return;
     }
-    
-    // منع النقر المزدوج أثناء الرفع
-    btnSend.removeEventListener('click', sendToTelegram);
 
-    // مفتاح API الخاص بك من ImgBB
-    const IMGBB_API_KEY = "adcb6daec9bef4d4d64dc34f2f8ca568"; // يُفضل وضع مفتاحك الحقيقي هنا
-    
-    // 1. استخراج الصورة من mainCanvas
-    const dataURL = mainCanvas.toDataURL('image/jpeg', 0.8);
+    // تحويل اللوحة إلى صورة Base64
+    const dataURL = canvasEl.toDataURL('image/jpeg', 0.8);
     const base64Image = dataURL.replace(/^data:image\/[^;]+;base64,/, '');
+    const IMGBB_API_KEY = "adcb6daec9bef4d4d64dc34f2f8ca568";
 
-    // 2. إظهار حالة التحميل
-    try {
-        if (tgNow.MainButton && typeof tgNow.MainButton.setText === 'function') {
-            try { tgNow.MainButton.setText('جاري الرفع...').show().disable(); } catch(e) { console.warn('MainButton ops failed', e); }
-        }
-        tgNow.HapticFeedback?.impactOccurred?.('medium');
-    } catch(e){ console.warn('tg UI ops fail', e); }
+    // عرض حالة الرفع
+    const btn = document.getElementById('btnSend') || document.querySelector('button');
+    btn.disabled = true;
+    btn.textContent = "⏳ جاري الرفع...";
 
-    // 3. رفع الصورة إلى ImgBB
+    // رفع الصورة إلى ImgBB
     fetch(`https://api.imgbb.com/1/upload?key=${IMGBB_API_KEY}`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
         body: `image=${encodeURIComponent(base64Image)}`
     })
-    .then(r => r.json())
+    .then(res => res.json())
     .then(data => {
-        if (data && data.success) {
-            const imageUrl = data.data.url;
-            const MESSAGE_PREFIX = "DOODLE_URL::";
-            const messageToSend = MESSAGE_PREFIX + imageUrl;
-            try {
-                tgNow.sendData(messageToSend);
-                tgNow.showAlert && tgNow.showAlert('✅ تم إرسال الرابط بنجاح إلى البوت!');
-            } catch (e) {
-                console.error('tgNow.sendData failed', e);
-                tgNow.showAlert && tgNow.showAlert('❌ فشل إرسال البيانات إلى البوت.');
-            }
+        if (data.success) {
+            const url = data.data.url;
+            console.log("✅ تم رفع الصورة:", url);
+            alert("✅ تم رفع الصورة بنجاح!\nالرابط:\n" + url);
         } else {
-            const err = data?.error?.message || JSON.stringify(data);
-            tgNow.showAlert && tgNow.showAlert('❌ فشل الرفع إلى ImgBB: ' + err);
-            console.error('ImgBB response error:', data);
+            console.error("❌ خطأ في الرفع:", data);
+            alert("❌ فشل رفع الصورة إلى ImgBB");
         }
     })
     .catch(err => {
-        console.error('Upload fetch error', err);
-        tgNow.showAlert && tgNow.showAlert('❌ خطأ في الاتصال أثناء الرفع: ' + (err.message || err));
+        console.error("❌ خطأ في الاتصال:", err);
+        alert("⚠️ خطأ في الاتصال أثناء الرفع.");
     })
     .finally(() => {
-        try { tgNow.MainButton && tgNow.MainButton.hide && tgNow.MainButton.hide(); } catch(e){/*ignore*/ }
-        btnSend.addEventListener('click', sendToTelegram);
+        btn.disabled = false;
+        btn.textContent = "📤 رفع الصورة";
     });
 }
+
 
 
     // ****************************
