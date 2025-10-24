@@ -1,6 +1,7 @@
 // app.js
 (() => {
     // #1. تهيئة Telegram WebApp
+    const tg = window.Telegram?.WebApp || null; // ⚠️ يبقى هنا للتهيئة الأولية
 
 // #2. محددات DOM
     const mainCanvas = document.getElementById('mainCanvas');
@@ -497,48 +498,67 @@ function drawShape(ctx, startX, startY, endX, endY, shapeType) {
 // #6. وظيفة الإرسال إلى Telegram (مربوطة بزر الحفظ)
 // ****************************
 function sendToTelegram() {
-    const canvasEl = document.getElementById('mainCanvas') || document.getElementById('canvas');
-    if (!canvasEl) {
-        alert('❌ لم يتم العثور على اللوحة (canvas)!');
-        return;
-    }
+        // 💡 التصحيح الحاسم: إعادة الحصول على كائن WebApp هنا لضمان أنه محمل
+        const telegramApp = window.Telegram?.WebApp || null;
 
-    // تحويل اللوحة إلى صورة Base64
-    const dataURL = canvasEl.toDataURL('image/jpeg', 0.8);
-    const base64Image = dataURL.replace(/^data:image\/[^;]+;base64,/, '');
-    const IMGBB_API_KEY = "adcb6daec9bef4d4d64dc34f2f8ca568";
-
-    // عرض حالة الرفع
-    const btn = document.getElementById('btnSend') || document.querySelector('button');
-    btn.disabled = true;
-    btn.textContent = "⏳ جاري الرفع...";
-
-    // رفع الصورة إلى ImgBB
-    fetch(`https://api.imgbb.com/1/upload?key=${IMGBB_API_KEY}`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
-        body: `image=${encodeURIComponent(base64Image)}`
-    })
-    .then(res => res.json())
-    .then(data => {
-        if (data.success) {
-            const url = data.data.url;
-            console.log("✅ تم رفع الصورة:", url);
-            alert("✅ تم رفع الصورة بنجاح!\nالرابط:\n" + url);
-        } else {
-            console.error("❌ خطأ في الرفع:", data);
-            alert("❌ فشل رفع الصورة إلى ImgBB");
+        if (!telegramApp) {
+            alert('⚠️ لم يتم اكتشاف بيئة تيليجرام.');
+            // نستخدم window.close() كاحتياطي إذا لم نعمل في بيئة تيليجرام
+            if (!tg) window.close(); 
+            return;
         }
-    })
-    .catch(err => {
-        console.error("❌ خطأ في الاتصال:", err);
-        alert("⚠️ خطأ في الاتصال أثناء الرفع.");
-    })
-    .finally(() => {
-        btn.disabled = false;
-        btn.textContent = "📤 رفع الصورة";
-    });
-}
+
+        // ⚠️ مفتاح API الخاص بك من ImgBB
+        const IMGBB_API_KEY = "adcb6daec9bef4d4e64dc34f2f8ca568";
+        
+        // 1. استخراج الصورة من mainCanvas
+        const dataURL = mainCanvas.toDataURL('image/jpeg', 0.8);
+        const base64Image = dataURL.replace(/^data:image\/[^;]+;base64,/, '');
+
+        // 2. إظهار حالة التحميل للمستخدم
+        telegramApp.MainButton.setText('جاري الرفع...').show().disable();
+        telegramApp.HapticFeedback?.impactOccurred('medium');
+
+        // منع النقر المزدوج على زر الـ DOM أثناء الرفع
+        btnSend.disabled = true;
+
+        // 3. إرسال طلب POST لرفع الصورة إلى ImgBB
+        fetch(`https://api.imgbb.com/1/upload?key=${IMGBB_API_KEY}`, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/x-www-form-urlencoded'
+            },
+            body: `image=${encodeURIComponent(base64Image)}`
+        })
+        .then(response => response.json())
+        .then(data => {
+            if (data.success) {
+                const imageUrl = data.data.url;
+                
+                // 4. بعد الرفع الناجح، نرسل رابط الصورة (نص قصير) إلى البوت
+                const MESSAGE_PREFIX = "DOODLE_URL::";
+                const messageToSend = MESSAGE_PREFIX + imageUrl;
+
+                // الإرسال عبر API الـ WebApp الرسمي
+                telegramApp.sendData(messageToSend);
+                
+                // رسالة نجاح وإغلاق الـ WebApp
+                telegramApp.showAlert('✅ تم إرسال الرابط بنجاح إلى البوت!');
+                
+            } else {
+                telegramApp.showAlert('❌ فشل الرفع إلى ImgBB: ' + (data.error?.message || 'خطأ غير معروف.'));
+            }
+        })
+        .catch(error => {
+            telegramApp.showAlert('❌ خطأ في الاتصال بالخادم (ImgBB): ' + error.message);
+            console.error("Fetch Error:", error);
+        })
+        .finally(() => {
+            // إزالة حالة التحميل وإعادة تفعيل الأزرار
+            telegramApp.MainButton.hide();
+            btnSend.disabled = false;
+        });
+    }
 
 
 
@@ -655,8 +675,7 @@ tempCanvas.addEventListener('mousedown', () => {
     }
 });
     // الحفظ/الإرسال إلى Telegram
-    if (btnSend) btnSend.addEventListener('click', sendToTelegram);
-
+if (btnSend) btnSend.addEventListener('click', sendToTelegram);
 if (colorInput) {
         colorInput.addEventListener('input', (e) => {
             // تحديث لون الفرشاة عند اختيار لون جديد
@@ -751,26 +770,21 @@ if (brushCircle) {
     }
     // تهيئة Telegram WebApp وعرض الكلمة
 try {
-        if (tg) {
+        // نستخدم tg المعرّف في النطاق الخارجي هنا
+        if (tg) { 
             tg.expand && tg.expand();
             const params = new URLSearchParams(window.location.search);
             let startWord = 'فطيرة ⚙️'; 
             if (params.has('word')) startWord = params.get('word');
             if (wordBox) wordBox.innerHTML = `${startWord} ⚙️`;
 
-            // 🆕 إضافة منطق التصغير الشرطي هنا 
-            // ----------------------------------------------------
+            // إضافة منطق التصغير الشرطي هنا 
             const canvasContainer = document.querySelector('.canvas-container');
             if (canvasContainer) {
-                 // التحقق من أننا نعمل داخل التيليجرام 
-                 // (عادةً ما يتم التحقق من وجود tg.WebApp)
                 canvasContainer.classList.add('tg-scaled');
             }
-            // ----------------------------------------------------
-
         }
     } catch(e){
         console.warn('init error', e);
     }
-
 })();
