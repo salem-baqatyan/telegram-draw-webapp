@@ -503,7 +503,8 @@ function drawShape(ctx, startX, startY, endX, endY, shapeType) {
 // #6. وظيفة الإرسال إلى Telegram (مربوطة بزر الحفظ)
 // ****************************
 function sendToTelegram() {
-    if (!tg) {
+    // ⚠️ نستخدم 'tg' المعرف في النطاق الخارجي (الجزء #1)
+    if (!tg) { 
         alert('⚠️ لم يتم اكتشاف بيئة تيليجرام.');
         return;
     }
@@ -511,11 +512,10 @@ function sendToTelegram() {
     // منع النقر المزدوج أثناء الرفع
     btnSend.removeEventListener('click', sendToTelegram);
 
-    // ⚠️ مفتاح API الخاص بك من ImgBB
+    // مفتاح API الخاص بك من ImgBB
     const IMGBB_API_KEY = "adcb6daec9bef4d4d64dc34f2f8ca568"; // يُفضل وضع مفتاحك الحقيقي هنا
     
     // 1. استخراج الصورة من mainCanvas
-    // نستخدم 'image/jpeg' بجودة 0.8 لتقليل حجم البيانات التي نرفعها
     const dataURL = mainCanvas.toDataURL('image/jpeg', 0.8);
     const base64Image = dataURL.replace(/^data:image\/[^;]+;base64,/, '');
 
@@ -690,11 +690,6 @@ if (colorInput) {
                 colorIconSpan.style.color = brushColor;
             }
 
-            // اختيار لون جديد يعني غالباً أن المستخدم يريد الرسم
-            // tool = 'brush'; 
-            // btnPencil?.querySelector('.circle-switch').classList.add('active');
-            // btnEraser?.classList.remove('active');
-            // btnFill?.classList.remove('active');
         });
     }
     // ****************************
