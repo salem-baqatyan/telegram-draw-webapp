@@ -6,8 +6,16 @@
  */
 (() => {
     // #1. تهيئة Telegram WebApp
-    const tg = window.Telegram?.WebApp || null;
-
+const tg = (function() {
+    // بعض منصات Telegram تضع window.Telegram.WebApp
+    // وبعض البيئات قد تضع window.Telegram مباشرة (نادراً) — نغطي الحالتين
+    if (typeof window !== 'undefined') {
+        if (window.Telegram && window.Telegram.WebApp) return window.Telegram.WebApp;
+        if (window.Telegram) return window.Telegram; // fallback نادر
+    }
+    return null;
+})();
+console.log('DEBUG: window.Telegram exists?', !!window.Telegram, 'window.Telegram.WebApp exists?', !!(window.Telegram && window.Telegram.WebApp), 'tg var:', tg);
 // #2. محددات DOM
     const mainCanvas = document.getElementById('mainCanvas');
     const tempCanvas = document.getElementById('tempCanvas'); 
@@ -504,8 +512,11 @@ function drawShape(ctx, startX, startY, endX, endY, shapeType) {
 // ****************************
 function sendToTelegram() {
     // ⚠️ نستخدم 'tg' المعرف في النطاق الخارجي (الجزء #1)
-    if (!tg) { 
-        alert('⚠️ لم يتم اكتشاف بيئة تيليجرام.');
+    if (!tg || typeof tg.sendData !== 'function') {
+        // تسجيل في الكونسول يساعد على التشخيص
+        console.warn('Telegram WebApp not detected or sendData not available. tg:', tg);
+        // رسالة أوضح للمستخدم: افتح التطبيق من داخل تيليجرام على موبايلك
+        alert('⚠️ لم يتم اكتشاف بيئة تيليجرام WebApp هنا. افتح هذه الصفحة من داخل تطبيق Telegram (اضغط زر "فتح لوحة الرسم" في المحادثة مع البوت) على جهازك المحمول.');
         return;
     }
     
@@ -520,8 +531,16 @@ function sendToTelegram() {
     const base64Image = dataURL.replace(/^data:image\/[^;]+;base64,/, '');
 
     // 2. إظهار حالة التحميل
-    tg.MainButton.setText('جاري الرفع...').show().disable();
-    tg.HapticFeedback?.impactOccurred('medium');
+    try {
+        // إظهار حالة التحميل بطريقة آمنة (تحقق من وجود MainButton)
+        if (tg.MainButton && typeof tg.MainButton.setText === 'function') {
+            try { tg.MainButton.setText('جاري الرفع...').show().disable(); } catch(e) { console.warn('MainButton operation failed', e); }
+        }
+
+        tg.HapticFeedback?.impactOccurred?.('medium');
+    } catch (e) {
+        console.warn('telegram UI ops failed', e);
+    }
 
     // 3. رفع الصورة إلى ImgBB
     fetch(`https://api.imgbb.com/1/upload?key=${IMGBB_API_KEY}`, {
@@ -535,26 +554,25 @@ function sendToTelegram() {
     .then(data => {
         if (data.success) {
             const imageUrl = data.data.url;
-            
-            // 4. إرسال رابط الصورة باستخدام البادئة المتوقعة من البوت
-            const MESSAGE_PREFIX = "DOODLE_URL::"; 
+            const MESSAGE_PREFIX = "DOODLE_URL::";
             const messageToSend = MESSAGE_PREFIX + imageUrl;
-
-            tg.sendData(messageToSend);
-            
-            tg.showAlert('✅ تم إرسال الرابط بنجاح إلى البوت!');
-            
+            try {
+                tg.sendData(messageToSend);
+                tg.showAlert && tg.showAlert('✅ تم إرسال الرابط بنجاح إلى البوت!');
+            } catch (e) {
+                console.error('tg.sendData failed', e);
+                tg.showAlert && tg.showAlert('❌ حدث خطأ عند إرسال البيانات إلى البوت.');
+            }            
         } else {
             tg.showAlert('❌ فشل الرفع إلى ImgBB: ' + (data.error?.message || 'خطأ غير معروف.'));
         }
     })
     .catch(error => {
-        tg.showAlert('❌ خطأ في الاتصال بالخادم (ImgBB): ' + error.message);
+        tg.showAlert && tg.showAlert('❌ خطأ في الاتصال بالخادم (ImgBB): ' + error.message);
         console.error("Fetch Error:", error);
     })
     .finally(() => {
-        // إعادة تفعيل الزر وإخفاء زر Telegram
-        tg.MainButton.hide();
+        try { tg.MainButton && tg.MainButton.hide && tg.MainButton.hide(); } catch(e){/* ignore */ }
         btnSend.addEventListener('click', sendToTelegram); // إعادة معالج الحدث
     });
 }

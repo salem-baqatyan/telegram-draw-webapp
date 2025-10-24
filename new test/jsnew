@@ -87,7 +87,7 @@ function updateShapeIcon(shapeType) {
     function fixCanvas() {
         const ratio = window.devicePixelRatio || 1;
         // نستخدم الأبعاد الثابتة 800x800 كما هي محددة في HTML
-        const size = 800; 
+        const size = 500; 
 
         // ضبط الأبعاد الحقيقية للـ mainCanvas
         mainCanvas.width = size * ratio;
@@ -267,14 +267,19 @@ function floodFill(startX, startY) {
     // ****************************
 
     // الحصول على موقع الماوس/اللمس
-    function getPos(e) {
-        const rect = tempCanvas.getBoundingClientRect();
-        const clientX = e.touches ? e.touches[0].clientX : e.clientX;
-        const clientY = e.touches ? e.touches[0].clientY : e.clientY;
-        const x = clientX - rect.left;
-        const y = clientY - rect.top;
-        return { x, y };
-    }
+function getPos(e) {
+    // نستخدم tempCanvas لأنها هي التي تستقبل الأحداث
+    const rect = tempCanvas.getBoundingClientRect(); 
+    const clientX = e.touches ? e.touches[0].clientX : e.clientX;
+    const clientY = e.touches ? e.touches[0].clientY : e.clientY;
+    
+    // إحداثيات CSS غير المصححة
+    const x = clientX - rect.left;
+    const y = clientY - rect.top;
+    
+    // 🎯 العودة إلى إحداثيات CSS التي يجب أن تستخدم في دالة الرسم
+    return { x, y }; 
+}
 
 // بدء الرسم (Mouse Down / Touch Start)
 function startDraw(e) {
@@ -282,15 +287,7 @@ function startDraw(e) {
 
     if (tool === 'fill') {
         const pos = getPos(e);
-        const rect = tempCanvas.getBoundingClientRect();
-        const canvasActualWidth = 800;
-        const canvasRenderedWidth = rect.width;
-
-        const xCanvas = pos.x * (canvasActualWidth / canvasRenderedWidth);
-        const yCanvas = pos.y * (canvasActualWidth / canvasRenderedWidth); 
-        
-        floodFill(xCanvas, yCanvas);
-        
+        floodFill(pos.x, pos.y);        
         e.preventDefault();
         return; 
     }        
@@ -315,12 +312,12 @@ function startDraw(e) {
     mainContext.lineCap = 'round';
     mainContext.lineJoin = 'round';
     // 🎯 ملاحظة: brushSize * 1.5 هو عامل تصحيح الحجم الذي تستخدمه
-    mainContext.lineWidth = brushSize * 1.5; 
+    mainContext.lineWidth = brushSize; 
     mainContext.globalAlpha = brushOpacity;
     
     tempContext.lineCap = 'round';
     tempContext.lineJoin = 'round';
-    tempContext.lineWidth = brushSize * 1.5; 
+    tempContext.lineWidth = brushSize; 
     tempContext.globalAlpha = brushOpacity;
 
     // 2. منطق المسح (Eraser)
@@ -420,7 +417,7 @@ if (tool === 'shape') {
     
     mainContext.lineCap = 'round';
     mainContext.lineJoin = 'round';
-    mainContext.lineWidth = brushSize * 1.5;
+    mainContext.lineWidth = brushSize;
     mainContext.globalAlpha = brushOpacity;
     
     if (tool === 'eraser') {
@@ -443,7 +440,7 @@ if (tool === 'shape') {
     
     tempContext.lineCap = 'round';
     tempContext.lineJoin = 'round';
-    tempContext.lineWidth = brushSize* 1.4;
+    tempContext.lineWidth = brushSize;
     
     // 🎯 التعديل الحاسم: تعيين اللون الأبيض بشكل قسري للممحاة هنا
     tempContext.globalAlpha = brushOpacity;
@@ -472,7 +469,7 @@ function drawShape(ctx, startX, startY, endX, endY, shapeType) {
     ctx.lineJoin = 'miter'; 
     
     // تطبيق إعدادات الفرشاة (باستخدام عامل التصحيح 1.5)
-    ctx.lineWidth = brushSize * 1.5; 
+    ctx.lineWidth = brushSize; 
     ctx.strokeStyle = brushColor;
     ctx.globalAlpha = brushOpacity;
     
@@ -506,7 +503,9 @@ function drawShape(ctx, startX, startY, endX, endY, shapeType) {
 // #6. وظيفة الإرسال إلى Telegram (مربوطة بزر الحفظ)
 // ****************************
 function sendToTelegram() {
-    if (!tg) {
+    // ⚠️ نستخدم 'tg' المعرف في النطاق الخارجي (الجزء #1)
+    const telegramApp = window.Telegram?.WebApp || null;
+    if (!tg) { 
         alert('⚠️ لم يتم اكتشاف بيئة تيليجرام.');
         return;
     }
@@ -514,11 +513,10 @@ function sendToTelegram() {
     // منع النقر المزدوج أثناء الرفع
     btnSend.removeEventListener('click', sendToTelegram);
 
-    // ⚠️ مفتاح API الخاص بك من ImgBB
+    // مفتاح API الخاص بك من ImgBB
     const IMGBB_API_KEY = "adcb6daec9bef4d4d64dc34f2f8ca568"; // يُفضل وضع مفتاحك الحقيقي هنا
     
     // 1. استخراج الصورة من mainCanvas
-    // نستخدم 'image/jpeg' بجودة 0.8 لتقليل حجم البيانات التي نرفعها
     const dataURL = mainCanvas.toDataURL('image/jpeg', 0.8);
     const base64Image = dataURL.replace(/^data:image\/[^;]+;base64,/, '');
 
@@ -693,11 +691,6 @@ if (colorInput) {
                 colorIconSpan.style.color = brushColor;
             }
 
-            // اختيار لون جديد يعني غالباً أن المستخدم يريد الرسم
-            // tool = 'brush'; 
-            // btnPencil?.querySelector('.circle-switch').classList.add('active');
-            // btnEraser?.classList.remove('active');
-            // btnFill?.classList.remove('active');
         });
     }
     // ****************************
@@ -776,13 +769,24 @@ if (brushCircle) {
         colorIconSpan.style.color = brushColor;
     }
     // تهيئة Telegram WebApp وعرض الكلمة
-    try {
+try {
         if (tg) {
             tg.expand && tg.expand();
             const params = new URLSearchParams(window.location.search);
             let startWord = 'فطيرة ⚙️'; 
             if (params.has('word')) startWord = params.get('word');
             if (wordBox) wordBox.innerHTML = `${startWord} ⚙️`;
+
+            // 🆕 إضافة منطق التصغير الشرطي هنا 
+            // ----------------------------------------------------
+            const canvasContainer = document.querySelector('.canvas-container');
+            if (canvasContainer) {
+                 // التحقق من أننا نعمل داخل التيليجرام 
+                 // (عادةً ما يتم التحقق من وجود tg.WebApp)
+                canvasContainer.classList.add('tg-scaled');
+            }
+            // ----------------------------------------------------
+
         }
     } catch(e){
         console.warn('init error', e);

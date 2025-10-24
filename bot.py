@@ -55,28 +55,6 @@ async def webapp_data_handler(update: Update, context: ContextTypes.DEFAULT_TYPE
     user_id = update.effective_user.id
     chat_id = update.effective_chat.id
 
-    # 🟢 الحالة 1: استقبال الصورة بصيغة Base64 مباشرة
-    # match_base64 = re.search(r"^DOODLE_BASE64::(.+)", data, re.DOTALL)
-    # if match_base64:
-    #     print(f"\n--- DEBUG: Received DOODLE_BASE64 from user {user_id} ---")
-    #     try:
-    #         img_data = base64.b64decode(match_base64.group(1))
-    #         image_file = io.BytesIO(img_data)
-    #         image_file.name = f"doodle_{user_id}.jpeg"
-
-    #         await context.bot.send_photo(
-    #             chat_id=chat_id,
-    #             photo=InputFile(image_file),
-    #             caption="🖼️ رسمتك تم رفعها مباشرة عبر Telegram!"
-    #         )
-    #         print("DEBUG: Photo uploaded directly to Telegram API.")
-
-    #     except Exception as e:
-    #         logger.error(f"Error decoding base64 image: {e}")
-    #         await update.effective_message.reply_text(f"❌ خطأ أثناء فك تشفير الصورة: {e}")
-    #     return
-
-    # 🔵 الحالة 2: إذا كانت DOODLE_URL كما في الكود السابق (احتياطي)
     match_url = re.search(r"^DOODLE_URL::(.+)", data, re.DOTALL)
     if match_url:
         image_url = match_url.group(1)
