@@ -1,0 +1,50 @@
+<!doctype html>
+
+<html lang="ar">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>Unseen MVP Games — Draw</title>
+  <link rel="icon" href="favicon.ico" />
+  <link rel="stylesheet" href="style.css" />
+  <script src="https://telegram.org/js/telegram-web-app.js"></script>
+</head>
+<body>
+  <div class="draw-app">
+
+```
+<!-- 🔹 شريط علوي (الكلمة + زر الإعدادات) -->
+<header class="draw-topbar">
+  <div class="word-box" id="word">—</div>
+  <button id="settings" class="icon-btn">
+    ⚙️
+  </button>
+</header>
+
+<!-- 🔹 منطقة الرسم -->
+<main class="draw-main">
+  <canvas id="canvas"></canvas>
+</main>
+
+<!-- 🔹 شريط أدوات الرسم السفلي -->
+<footer class="draw-toolbar">
+  <button id="tool-brush" class="tool-btn active" title="فرشاة">✏️</button>
+  <button id="tool-eraser" class="tool-btn" title="ممحاة">🩹</button>
+  <button id="undo" class="tool-btn" title="تراجع">↩️</button>
+  <button id="clear" class="tool-btn" title="مسح الكل">🧹</button>
+  <button id="color" class="tool-btn color-btn" title="الألوان">
+    <span class="color-preview" id="color-preview"></span>
+  </button>
+  <button id="size" class="tool-btn size-btn" title="الفرشاة">
+    <span id="size-value">6</span>🖌️
+  </button>
+  <button id="btn-send" class="tool-btn primary" title="إرسال">📤</button>
+</footer>
+```
+
+  </div>
+
+  <script src="app.js"></script>
+
+</body>
+</html>
