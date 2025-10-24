@@ -267,14 +267,32 @@ function floodFill(startX, startY) {
     // ****************************
 
     // الحصول على موقع الماوس/اللمس
-    function getPos(e) {
-        const rect = tempCanvas.getBoundingClientRect();
-        const clientX = e.touches ? e.touches[0].clientX : e.clientX;
-        const clientY = e.touches ? e.touches[0].clientY : e.clientY;
-        const x = clientX - rect.left;
-        const y = clientY - rect.top;
-        return { x, y };
-    }
+function getPos(e) {
+        const rect = tempCanvas.getBoundingClientRect();
+        const clientX = e.touches ? e.touches[0].clientX : e.clientX;
+        const clientY = e.touches ? e.touches[0].clientY : e.clientY;
+        
+        // الإحداثيات بالنسبة لحجم العرض (CSS Pixels)
+        const xClient = clientX - rect.left;
+        const yClient = clientY - rect.top;
+        
+        // 🎯 التصحيح الأساسي: حساب نسبة التحجيم 
+        // نقوم بتقسيم العرض الفعلي للـ Canvas (800) على عرض العرض (CSS)
+        const scaleX = mainCanvas.width / (rect.width * (window.devicePixelRatio || 1));
+        const scaleY = mainCanvas.height / (rect.height * (window.devicePixelRatio || 1));
+
+        // 🎯 تطبيق التصحيح: ضرب إحداثيات العرض بنسبة التحجيم
+        const xCanvas = xClient * scaleX;
+        const yCanvas = yClient * scaleY;
+        
+        // 🎯 العودة إلى إحداثيات CSS المصححة (حجم 800) قبل تطبيق ratio
+        const ratio = window.devicePixelRatio || 1;
+        return { 
+            // نقسم على ratio لإعطاء إحداثيات الـ Canvas المصححة (800x800)
+            x: xCanvas / ratio, 
+            y: yCanvas / ratio 
+        };
+    }
 
 // بدء الرسم (Mouse Down / Touch Start)
 function startDraw(e) {
@@ -289,8 +307,7 @@ function startDraw(e) {
         const xCanvas = pos.x * (canvasActualWidth / canvasRenderedWidth);
         const yCanvas = pos.y * (canvasActualWidth / canvasRenderedWidth); 
         
-        floodFill(xCanvas, yCanvas);
-        
+        floodFill(pos.x, pos.y);        
         e.preventDefault();
         return; 
     }        
