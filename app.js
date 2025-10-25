@@ -371,15 +371,25 @@ if (tool === 'eraser') {
 // إيقاف الرسم (Mouse Up / Touch End)
 function stopDraw(e) {
     if (!drawing) return;
-if (tool === 'shape') {
+
+    if (tool === 'shape') {
         drawing = false;
         const p = getPos(e); 
         drawShape(mainCtx, shapeStart.x, shapeStart.y, p.x, p.y, selectedShape);
         pushUndo();
         tempCtx.clearRect(0, 0, tempCanvas.width, tempCanvas.height); 
+        
+        // 🎯 المنطق الجديد: العودة للوضع الافتراضي (القلم)
+        tool = 'brush'; // 1. تعيين الأداة إلى القلم
+        selectedShape = null; // 2. إزالة الشكل المختار
+        updateShapeIcon(selectedShape); // 3. إعادة أيقونة الأشكال للافتراضي
+        btnShapes?.classList.remove('active'); // 4. إلغاء تفعيل زر الأشكال
+        btnPencil?.querySelector('.circle-switch').classList.add('active'); // 5. تفعيل زر القلم
+
         e && e.preventDefault();
         return;
     }
+
     drawing = false;
     
     // 🎯 الحل: حفظ حالة اللوحة (Undo) بعد اكتمال سحب الخط
@@ -498,72 +508,67 @@ function drawShape(ctx, startX, startY, endX, endY, shapeType) {
 // #6. وظيفة الإرسال إلى Telegram (مربوطة بزر الحفظ)
 // ****************************
 function sendToTelegram() {
-    const tg = window.Telegram?.WebApp || null;
-    if (!tg) {
-        alert('⚠️ لم يتم اكتشاف بيئة تيليجرام.');
-        return;
-    }
+        // 💡 التصحيح الحاسم: إعادة الحصول على كائن WebApp هنا لضمان أنه محمل
+        const telegramApp = window.Telegram?.WebApp || null;
 
-    // ⚠️ مفتاح API الخاص بك من ImgBB
-    const IMGBB_API_KEY = "adcb6daec9bef4d4e64dc34f2f8ca568"; // استبدل هنا!
-    
-    // 1. استخراج الصورة بجودة جيدة (لن نحتاج إلى التصغير الجذري بعد الآن!)
-    // يمكنك العودة إلى أبعاد اللوحة الأصلية وجودة أعلى
-    const ratio = window.devicePixelRatio || 1;
-    // يمكنك تجربة PNG أو JPEG بجودة 0.8 للحصول على صورة جيدة
-    const dataURL = canvas.toDataURL('image/jpeg', 0.8); 
-    
-    // إعداد رسالة البوت (Base64 بدون البادئة)
-    const base64Image = dataURL.replace(/^data:image\/[^;]+;base64,/, '');
-
-    // 2. إظهار حالة التحميل للمستخدم
-    tg.MainButton.setText('جاري الرفع...').show().disable();
-    tg.HapticFeedback.impactOccurred('medium');
-
-    // 3. إرسال طلب POST لرفع الصورة إلى ImgBB
-    fetch(`https://api.imgbb.com/1/upload?key=${IMGBB_API_KEY}`, {
-        method: 'POST',
-        headers: {
-            'Content-Type': 'application/x-www-form-urlencoded'
-        },
-        // Base64 يجب أن يُرسل كـ string في الفورم داتا
-        body: `image=${encodeURIComponent(base64Image)}`
-    })
-    .then(response => response.json())
-    .then(data => {
-        if (data.success) {
-            const imageUrl = data.data.url;
-            
-            // 4. بعد الرفع الناجح، نرسل رابط الصورة (نص قصير) إلى البوت
-            const MESSAGE_PREFIX = "DOODLE_URL::"; // ⚠️ بادئة جديدة
-            const messageToSend = MESSAGE_PREFIX + imageUrl;
-
-            if (messageToSend.length > 4000) {
-                 tg.showAlert('❌ فشل: الرابط الناتج طويل جداً بشكل غير متوقع.');
-                 return;
-            }
-
-            // الإرسال عبر API الـ WebApp الرسمي (سينجح لأن الرابط قصير)
-            tg.sendData(messageToSend);
-            
-            // عند نجاح الإرسال، سيتم إغلاق الـ WebApp
-            // (رسالة النجاح ستظهر للحظة قصيرة قبل الإغلاق)
-            tg.showAlert('✅ تم إرسال الرابط بنجاح إلى البوت!');
-            
-        } else {
-            tg.showAlert('❌ فشل الرفع إلى ImgBB: ' + data.error.message);
+        if (!telegramApp) {
+            alert('⚠️ لم يتم اكتشاف بيئة تيليجرام.');
+            // نستخدم window.close() كاحتياطي إذا لم نعمل في بيئة تيليجرام
+            if (!tg) window.close(); 
+            return;
         }
-    })
-    .catch(error => {
-        tg.showAlert('❌ خطأ في الاتصال بالخادم (ImgBB): ' + error.message);
-        console.error("Fetch Error:", error);
-    })
-    .finally(() => {
-        // إزالة حالة التحميل
-        tg.MainButton.hide();
-        tg.enableClosingConfirmation(); // إذا كنت تستخدمها
-    });
-}
+
+        // ⚠️ مفتاح API الخاص بك من ImgBB
+        const IMGBB_API_KEY = "adcb6daec9bef4d4e64dc34f2f8ca568";
+        
+        // 1. استخراج الصورة من mainCanvas
+        const dataURL = mainCanvas.toDataURL('image/jpeg', 0.8);
+        const base64Image = dataURL.replace(/^data:image\/[^;]+;base64,/, '');
+
+        // 2. إظهار حالة التحميل للمستخدم
+        telegramApp.MainButton.setText('جاري الرفع...').show().disable();
+        telegramApp.HapticFeedback?.impactOccurred('medium');
+
+        // منع النقر المزدوج على زر الـ DOM أثناء الرفع
+        btnSend.disabled = true;
+
+        // 3. إرسال طلب POST لرفع الصورة إلى ImgBB
+        fetch(`https://api.imgbb.com/1/upload?key=${IMGBB_API_KEY}`, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/x-www-form-urlencoded'
+            },
+            body: `image=${encodeURIComponent(base64Image)}`
+        })
+        .then(response => response.json())
+        .then(data => {
+            if (data.success) {
+                const imageUrl = data.data.url;
+                
+                // 4. بعد الرفع الناجح، نرسل رابط الصورة (نص قصير) إلى البوت
+                const MESSAGE_PREFIX = "DOODLE_URL::";
+                const messageToSend = MESSAGE_PREFIX + imageUrl;
+
+                // الإرسال عبر API الـ WebApp الرسمي
+                telegramApp.sendData(messageToSend);
+                
+                // رسالة نجاح وإغلاق الـ WebApp
+                telegramApp.showAlert('✅ تم إرسال الرابط بنجاح إلى البوت!');
+                
+            } else {
+                telegramApp.showAlert('❌ فشل الرفع إلى ImgBB: ' + (data.error?.message || 'خطأ غير معروف.'));
+            }
+        })
+        .catch(error => {
+            telegramApp.showAlert('❌ خطأ في الاتصال بالخادم (ImgBB): ' + error.message);
+            console.error("Fetch Error:", error);
+        })
+        .finally(() => {
+            // إزالة حالة التحميل وإعادة تفعيل الأزرار
+            telegramApp.MainButton.hide();
+            btnSend.disabled = false;
+        });
+    }
 
 
 
@@ -774,33 +779,22 @@ if (brushCircle) {
         colorIconSpan.style.color = brushColor;
     }
     // تهيئة Telegram WebApp وعرض الكلمة
-  try {
-    if (tg) {
-      // expand to full height
-      tg.expand && tg.expand();
-      const init = tg.initDataUnsafe || {};
-      // If bot passed a word to draw we can display it
-      // Many games pass word via fragment -> check window.location.hash as fallback
-      let startWord = 'حاول التخمين';
-      if (init?.query_id) {
-        // nothing
-      }
-      // try url fragment (tgWebAppData)
-      const h = decodeURIComponent(window.location.hash || '');
-      const m = h.match(/tgWebAppData=([^&]+)/);
-      if (m) {
-        try {
-          const parsed = decodeURIComponent(m[1]);
-          // parsed may be like user%3D... or a more complex string; we won't rely on it now
-        } catch(e){}
-      }
-      // optionally the bot could pass a word via query param ?word=...
-      const params = new URLSearchParams(window.location.search);
-      if (params.has('word')) startWord = params.get('word');
-      wordBox.textContent = startWord;
-    }
-  } catch(e){
-    console.warn('init error', e);
-  }
+try {
+        // نستخدم tg المعرّف في النطاق الخارجي هنا
+        if (tg) { 
+            tg.expand && tg.expand();
+            const params = new URLSearchParams(window.location.search);
+            let startWord = 'فطيرة ⚙️'; 
+            if (params.has('word')) startWord = params.get('word');
+            if (wordBox) wordBox.innerHTML = `${startWord} ⚙️`;
 
+            // إضافة منطق التصغير الشرطي هنا 
+            const canvasContainer = document.querySelector('.canvas-container');
+            if (canvasContainer) {
+                canvasContainer.classList.add('tg-scaled');
+            }
+        }
+    } catch(e){
+        console.warn('init error', e);
+    }
 })();
