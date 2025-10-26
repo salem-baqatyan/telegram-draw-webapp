@@ -1,14 +1,29 @@
 // app.js
 
-/**
- * وظائف لوحة الرسم مع دمج Telegram WebApp
- * (تم تكييفه بناءً على نموذجك وربطه بـ IDs تصميمك)
- */
+    // 🌟 جديد: قراءة الكلمة المستهدفة من معامل URL عند تحميل الـ Web App
+    const urlParams = new URLSearchParams(window.location.search);
+    let targetWord = urlParams.get('start_word');
+    // 🚨 التأكد من أن الكلمة غير فارغة وترميزها
+    if (targetWord) {
+    // نقوم بإزالة أي ترميز URL قد يكون موجوداً (مثل تحويل %D8%B4 إلى ش)
+    targetWord = decodeURIComponent(targetWord);
+    console.log(`[APP] Target Word loaded from URL: ${targetWord}`);
+    } else {
+    // قيمة افتراضية في حالة فتح اللوحة مباشرة بدون اختيار كلمة (للتجربة)
+    targetWord = 'الرسم الحر';
+    console.log("[APP] No Target Word found, setting to default: الرسم الحر");
+}
+
+
 (() => {
     // #1. تهيئة Telegram WebApp
     const tg = window.Telegram?.WebApp || null;
-
-// #2. محددات DOM
+    
+    // #2. محددات DOM
+    const targetWordElement = document.getElementById('targetWordDisplay');
+    if (targetWordElement) {
+        targetWordElement.textContent = targetWord;
+    }
     const mainCanvas = document.getElementById('mainCanvas');
     const tempCanvas = document.getElementById('tempCanvas'); 
     const wordBox = document.querySelector('.word');
@@ -772,12 +787,9 @@ if (brushCircle) {
 try {
         if (tg) {
             tg.expand && tg.expand();
-            const params = new URLSearchParams(window.location.search);
-            let startWord = 'فطيرة ⚙️'; 
-            if (params.has('word')) startWord = params.get('word');
-            if (wordBox) wordBox.innerHTML = `${startWord} ⚙️`;
-
-            // 🆕 إضافة منطق التصغير الشرطي هنا 
+            if (wordBox) {
+                wordBox.innerHTML = `<span id="targetWordDisplay">${targetWord}</span> ✍️`;
+            }            // 🆕 إضافة منطق التصغير الشرطي هنا 
             // ----------------------------------------------------
             const canvasContainer = document.querySelector('.canvas-container');
             if (canvasContainer) {
