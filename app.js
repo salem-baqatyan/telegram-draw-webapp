@@ -548,17 +548,18 @@ function sendToTelegram() {
         body: `image=${encodeURIComponent(base64Image)}`
     })
     .then(response => response.json())
-    .then(data => {
+.then(data => {
         if (data.success) {
             const imageUrl = data.data.url;
             
-            // 4. إرسال رابط الصورة باستخدام البادئة المتوقعة من البوت
-            const MESSAGE_PREFIX = "DOODLE_URL::"; 
-            const messageToSend = MESSAGE_PREFIX + imageUrl;
+            // 🚨 التغيير الحاسم هنا: إرسال الكلمة المستهدفة مع الرابط
+            const MESSAGE_PREFIX = "DOODLE_DATA::";
+            // نستخدم targetWord المعرف في النطاق الأعلى
+            const messageToSend = `${MESSAGE_PREFIX}${imageUrl}::${targetWord}`; 
 
             tg.sendData(messageToSend);
             
-            tg.showAlert('✅ تم إرسال الرابط بنجاح إلى البوت!');
+            tg.showAlert('✅ تم إرسال الرسم بنجاح إلى البوت!');
             
         } else {
             tg.showAlert('❌ فشل الرفع إلى ImgBB: ' + (data.error?.message || 'خطأ غير معروف.'));

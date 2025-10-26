@@ -5,12 +5,12 @@ import base64
 import re
 import requests
 import io
-import random # 🌟 جديد: لاستخدام العشوائية في اختيار الكلمات
+import random
 
 from telegram import (
     Update,
-    ReplyKeyboardMarkup,
-    KeyboardButton,
+    InlineKeyboardMarkup, 
+    InlineKeyboardButton, 
     WebAppInfo,
     InputFile,
 )
@@ -38,84 +38,152 @@ WORD_LIST = [
 ]
 
 # 🌟 جديد: لتخزين الكلمات التي تم اختيارها مسبقاً لكل مستخدم (حتى لا يتم تكرارها مؤقتاً)
-# يمكن توسيع هذا ليصبح قاعدة بيانات إذا احتجت إلى تخزين دائم
 selected_words_history = {}
 
-last_user_chat_id = {}
+# 🚨 تغيير: سنخزن آخر chat_id للمجموعة التي بدأ فيها المستخدم اللعبة
+# المفتاح هو user_id والقيمة هي group_chat_id
+last_user_group_chat_id = {}
 
 
+# ----------------------------------------------------
+# 🚀 دالة /start المُعدَّلة: التعامل مع الخاص والمجموعة
+# ----------------------------------------------------
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    user = update.message.from_user
+    user_id = user.id
     chat_id = update.message.chat_id
-    user_id = update.message.from_user.id
-    last_user_chat_id[user_id] = chat_id
-    
-    print(f"DEBUG: /start command received. User {user_id} chat {chat_id} saved.")
+    chat_type = update.effective_chat.type
 
-    # 🌟 جديد: اختيار 3 كلمات عشوائية غير مكررة
-    
-    # الحصول على الكلمات المستخدمة مؤقتاً لهذا المستخدم
-    history = selected_words_history.get(user_id, [])
-    
-    # الكلمات المتاحة للاختيار
-    available_words = [word for word in WORD_LIST if word not in history]
+    print(f"DEBUG: /start received. User {user_id} in chat {chat_id} ({chat_type}).")
 
-    if len(available_words) < 3:
-        # إذا لم يكن هناك 3 كلمات متاحة، نبدأ القائمة من جديد (نمحو السجل)
-        selected_words_history[user_id] = []
-        available_words = WORD_LIST
-        print("DEBUG: Word history reset for user.")
+    # 1. إذا كان الأمر في مجموعة (Group/Supergroup)
+    if chat_type in ["group", "supergroup"]:
+        # حفظ آخر group_chat_id لهذا المستخدم
+        last_user_group_chat_id[user_id] = chat_id
 
-    # اختيار 3 كلمات عشوائياً
-    chosen_words = random.sample(available_words, 3)
-    
-    # تحديث سجل الكلمات المستخدمة
-    history.extend(chosen_words)
-    selected_words_history[user_id] = history
-    
-    # 🌟 إنشاء أزرار Web App جديدة لكل كلمة
-    keyboard = []
-    for word in chosen_words:
-        # 🚨 النقطة الرئيسية: نمرر الكلمة كمعامل (parameter) في رابط WebApp
-        # يجب ترميز الكلمة (URL-encode) إذا كانت تحتوي على مسافات أو رموز خاصة، لكن للكلمات العربية البسيطة لا بأس
-        word_url_encoded = requests.utils.quote(word)
-        webapp_url_with_word = f"{WEBAPP_URL}?start_word={word_url_encoded}"
-
-        # يتم استخدام زر 'WebAppInfo' هنا أيضاً، ولكن الزر نفسه يحمل الكلمة كعنوان
-        keyboard.append([
-            KeyboardButton(word, web_app=WebAppInfo(url=webapp_url_with_word))
+        # 🚨 إنشاء زر "اذهب إلى خاص البوت"
+        markup_group = InlineKeyboardMarkup([
+            [InlineKeyboardButton(
+                text="اذهب الى خاص البوت", 
+                url=f"https://t.me/{context.bot.username}?start=game"
+            )]
         ])
+        
+        # 🚨 الرسالة في القروب
+        await update.message.reply_text(
+            "أهلاً بك في **لعبة ارسم وخمن**! 🎨", 
+            reply_markup=markup_group,
+            parse_mode="Markdown"
+        )
+        
+        # 🚨 إرسال الرسالة الثانية في الخاص (نستدعي start مرة أخرى ولكن بشكل آمن)
+        # نحتاج إلى اختيار الكلمات وإرسالها إلى الخاص الآن
+        
+        # 1. اختيار 3 كلمات عشوائية غير مكررة
+        history = selected_words_history.get(user_id, [])
+        available_words = [word for word in WORD_LIST if word not in history]
+        if len(available_words) < 3:
+            selected_words_history[user_id] = []
+            available_words = WORD_LIST
+            print("DEBUG: Word history reset for user.")
 
-    markup = ReplyKeyboardMarkup(keyboard, resize_keyboard=True, one_time_keyboard=True)
-    
-    # 🌟 إرسال الرسالة المطلوبة
-    await update.message.reply_text(
-        "اختر احد هذه الكلمات لكي ترسمها:", 
-        reply_markup=markup
-    )
+        chosen_words = random.sample(available_words, 3)
+        history.extend(chosen_words)
+        selected_words_history[user_id] = history
+        
+        # 2. إنشاء أزرار Web App جديدة لكل كلمة
+        keyboard_layout_private = []
+        for word in chosen_words:
+            word_url_encoded = requests.utils.quote(word)
+            webapp_url_with_word = f"{WEBAPP_URL}?start_word={word_url_encoded}"
+
+            keyboard_layout_private.append([
+                InlineKeyboardButton(
+                    text=word, 
+                    web_app=WebAppInfo(url=webapp_url_with_word)
+                )
+            ])
+        markup_private = InlineKeyboardMarkup(keyboard_layout_private)
+
+        # 3. إرسال الرسالة في الخاص (باستخدام user_id)
+        try:
+            await context.bot.send_message(
+                chat_id=user_id,
+                text="اختر احد هذه الكلمات لكي ترسمها: 👇",
+                reply_markup=markup_private
+            )
+        except Exception as e:
+            # إذا كان البوت غير قادر على إرسال رسالة في الخاص
+            await update.message.reply_text("⚠️ لم أستطع إرسال الكلمات لك في الخاص. يرجى التأكد من أنك بدأت البوت في الخاص أولاً.")
+            logger.error(f"Failed to send private message to {user_id}: {e}")
+            
+    # 2. إذا كان الأمر في الخاص (Private)
+    elif chat_type == "private":
+        # إذا كان المستخدم في الخاص، ولا توجد كلمات معلقة للاختيار (أي لم يبدأ من مجموعة)، لا تفعل شيئًا أو يمكنك هنا عرض رسالة ترحيب عادية.
+        await update.message.reply_text(
+            "مرحباً! لاستخدام اللعبة، ابدأ الأمر `/start` في أي مجموعة تحتوي على هذا البوت.",
+        )
 
 
+# ----------------------------------------------------
+# 🖼️ دالة webapp_data_handler المُعدَّلة: الإرسال إلى المجموعة
+# ----------------------------------------------------
 async def webapp_data_handler(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
-    # ... (بقية الدالة webapp_data_handler لا تحتاج لتعديل)
     data = update.effective_message.web_app_data.data
     user_id = update.effective_user.id
-    chat_id = update.effective_chat.id
+    user_name = update.effective_user.username or update.effective_user.first_name
 
-    match_url = re.search(r"^DOODLE_URL::(.+)", data, re.DOTALL)
-    if match_url:
-        image_url = match_url.group(1)
-        # 🌟 ملاحظة: يمكنك هنا إضافة الكلمة المرسومة في الـ Caption إذا كانت البيانات متوفرة
-        # لكن حالياً، الكود يرسل الصورة فقط.
-        await context.bot.send_photo(
-            chat_id=chat_id,
-            photo=image_url,
-            caption="🖼️ رسمتك من ImgBB!"
-        )
-        print("DEBUG: Sent photo via URL fallback.")
+    # 🚨 التغيير: استخدام نمط جديد لفك ترميز URL والكلمة
+    match_data = re.search(r"^DOODLE_DATA::(.+)::(.+)", data, re.DOTALL)
+    
+    # إذا لم يتم العثور على التنسيق الجديد، نعود للتحقق من التنسيق القديم (للسلامة)
+    if not match_data:
+        match_url = re.search(r"^DOODLE_URL::(.+)", data, re.DOTALL)
+        if match_url:
+            image_url = match_url.group(1)
+            caption = f"🖼️ رسمتك من ImgBB!"
+        else:
+            await update.effective_message.reply_text("تم استلام بيانات مجهولة من WebApp.")
+            return
+            
+        drawn_word = "غير معروفة" # الكلمة غير موجودة في التنسيق القديم
+
+    else:
+        # استخراج رابط الصورة والكلمة المستهدفة من التنسيق الجديد
+        image_url = match_data.group(1)
+        drawn_word_encoded = match_data.group(2)
+        
+        # 🌟 فك ترميز الكلمة المستهدفة (لأنها تأتي مشفرة من WebApp)
+        # requests.utils.unquote تعمل بشكل جيد لفك ترميز الـ URL
+        drawn_word = requests.utils.unquote(drawn_word_encoded)
+        
+        caption = f"🎨 رسم جديد من @{user_name}!\n\n**الكلمة:** {drawn_word} ✍️\n\nهل يمكنك تخمين ما رسمه؟"
+
+        # -----------------------------------------------------------------
+    # (المنطق المشترك: تحديد المجموعة والإرسال)
+    # -----------------------------------------------------------------
+    
+    target_chat_id = last_user_group_chat_id.get(user_id)
+    
+    if not target_chat_id:
+        await update.effective_message.reply_text("⚠️ فشل الإرسال: لم يتم العثور على مجموعة نشطة بدأت فيها اللعبة.")
         return
 
-    # 🔴 الحالة الافتراضية
-    await update.effective_message.reply_text("تم استلام بيانات مجهولة من WebApp.")
+    # إرسال الصورة إلى المجموعة المستهدفة
+    try:
+        await context.bot.send_photo(
+            chat_id=target_chat_id,
+            photo=image_url,
+            caption=caption, # استخدام التسمية التوضيحية التي تحتوي على الكلمة
+            parse_mode="Markdown"
+        )
+        # إرسال رسالة تأكيد في الخاص للمستخدم
+        await update.effective_message.reply_text(f"✅ تم إرسال رسمتك ({drawn_word}) إلى المجموعة بنجاح!")
+        print("DEBUG: Sent photo successfully to the group.")
 
+    except Exception as e:
+        await update.effective_message.reply_text("❌ حدث خطأ أثناء إرسال الصورة إلى المجموعة. ربما تمت إزالة البوت منها؟")
+        logger.error(f"Failed to send photo to group {target_chat_id}: {e}")
 
 # ---------------------------
 # 🚀 التشغيل (بدون تغيير عن الكود السابق)
