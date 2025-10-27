@@ -14,8 +14,6 @@ const urlParams = new URLSearchParams(window.location.search);
 const chatID = urlParams.get('chat_id');
 if (chatID) {
     console.log(`[APP] Chat ID loaded from URL: ${chatID}`);
-} else {
-    console.log("[APP] Warning: No Chat ID found in URL.");
 }
 
 (() => {
@@ -569,12 +567,16 @@ function sendToTelegram() {
 .then(data => {
         if (data.success) {
             const imageUrl = data.data.url;
-            const encodedWord = encodeURIComponent(targetWord);
             
-            // 🚨 التعديل الحاسم: إرسال chatID مع البيانات
-            // البادئة الجديدة: DOODLE_DATA::[URL]::[ENCODED_WORD]::[CHAT_ID]
-            const MESSAGE_PREFIX = "DOODLE_DATA::"; 
-            const messageToSend = `${MESSAGE_PREFIX}${imageUrl}::${encodedWord}::${chatID}`;
+            // 🚨 التعديل الحاسم: يجب أن ترسل chatID
+            // افترض أنك قمت بتضمين الكلمة، لذا سيكون التنسيق هو:
+            // DOODLE_URL::[URL]::[CHAT_ID] (أو أضف الكلمة إذا كنت تستخدمها)
+            
+            // بناءً على الكود السابق، سنفترض تنسيقك الحالي:
+            // إذا كنت تريد إرسال الكلمة، يجب تعديل الـ WebApp ليعيد الكلمة أيضاً.
+            
+            // للحفاظ على البساطة، سنلتزم بالـ URL و CHAT_ID:
+            const messageToSend = `DOODLE_URL::${imageUrl}::${chatID}`; // 💡 أضفنا CHAT_ID هنا
 
             tg.sendData(messageToSend);
             
