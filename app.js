@@ -10,6 +10,13 @@ const WORD_LIST = [
 let targetWord = 'الرسم الحر'; 
 console.log("[APP] No Target Word found in URL, initializing with default.");
 
+const urlParams = new URLSearchParams(window.location.search);
+const chatID = urlParams.get('chat_id');
+if (chatID) {
+    console.log(`[APP] Chat ID loaded from URL: ${chatID}`);
+} else {
+    console.log("[APP] Warning: No Chat ID found in URL.");
+}
 
 (() => {
     // #1. تهيئة Telegram WebApp
@@ -531,6 +538,10 @@ function sendToTelegram() {
         alert('⚠️ لم يتم اكتشاف بيئة تيليجرام.');
         return;
     }
+    if (!chatID) {
+        tg.showAlert('⚠️ فشل الإرسال: لم يتم استلام معرف الدردشة. يرجى البدء من المجموعة.');
+        return;
+    }
     
     // منع النقر المزدوج أثناء الرفع
     btnSend.removeEventListener('click', sendToTelegram);
@@ -558,14 +569,12 @@ function sendToTelegram() {
 .then(data => {
         if (data.success) {
             const imageUrl = data.data.url;
-            
-            // 🚨 التعديل الثاني: تشفير الكلمة
             const encodedWord = encodeURIComponent(targetWord);
             
-            // 4. إرسال رابط الصورة والكلمة المشفرة
-            // البادئة الجديدة: DOODLE_DATA::[URL]::[ENCODED_WORD]
+            // 🚨 التعديل الحاسم: إرسال chatID مع البيانات
+            // البادئة الجديدة: DOODLE_DATA::[URL]::[ENCODED_WORD]::[CHAT_ID]
             const MESSAGE_PREFIX = "DOODLE_DATA::"; 
-            const messageToSend = `${MESSAGE_PREFIX}${imageUrl}::${encodedWord}`;
+            const messageToSend = `${MESSAGE_PREFIX}${imageUrl}::${encodedWord}::${chatID}`;
 
             tg.sendData(messageToSend);
             
