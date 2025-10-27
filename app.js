@@ -1,18 +1,14 @@
 // app.js
 
-    // 🌟 جديد: قراءة الكلمة المستهدفة من معامل URL عند تحميل الـ Web App
-    const urlParams = new URLSearchParams(window.location.search);
-    let targetWord = urlParams.get('start_word');
-    // 🚨 التأكد من أن الكلمة غير فارغة وترميزها
-    if (targetWord) {
-    // نقوم بإزالة أي ترميز URL قد يكون موجوداً (مثل تحويل %D8%B4 إلى ش)
-    targetWord = decodeURIComponent(targetWord);
-    console.log(`[APP] Target Word loaded from URL: ${targetWord}`);
-    } else {
-    // قيمة افتراضية في حالة فتح اللوحة مباشرة بدون اختيار كلمة (للتجربة)
-    targetWord = 'الرسم الحر';
-    console.log("[APP] No Target Word found, setting to default: الرسم الحر");
-}
+const WORD_LIST = [
+    "شجرة", "قارب", "طائرة", "جبل", "قلم", 
+    "كتاب", "هاتف", "سيارة", "ساعة", "نظارة", 
+    "وردة", "شمس", "قمر", "مطر", "كمبيوتر"
+];
+
+// 🌟 متغير الكلمة الهدف (لأنه سيتم اختياره داخل التطبيق)
+let targetWord = 'الرسم الحر'; 
+console.log("[APP] No Target Word found in URL, initializing with default.");
 
 
 (() => {
@@ -24,6 +20,8 @@
     if (targetWordElement) {
         targetWordElement.textContent = targetWord;
     }
+    const wordDialog = document.getElementById('wordSelectionDialog'); // 🌟 جديد: مربع حوار الكلمات
+    const wordOptionsContainer = document.getElementById('wordOptions'); // 🌟 جديد: حاوية أزرار الكلمات
     const mainCanvas = document.getElementById('mainCanvas');
     const tempCanvas = document.getElementById('tempCanvas'); 
     const wordBox = document.querySelector('.word');
@@ -67,6 +65,7 @@
     let brushOpacity = 1.0; // 1.0 = 100% (كاملة)
     let shapeStart = { x: 0, y: 0 };
     let selectedShape = null;
+    let wordSelectionCompleted = false; // 🌟 جديد: لتتبع ما إذا تم اختيار الكلمة
     
 
     // 🎯 ثوابت SVG لأيقونات الأشكال
@@ -520,6 +519,14 @@ function drawShape(ctx, startX, startY, endX, endY, shapeType) {
 function sendToTelegram() {
     // ⚠️ نستخدم 'tg' المعرف في النطاق الخارجي (الجزء #1)
     const telegramApp = window.Telegram?.WebApp || null;
+    
+    // 🚨 التعديل الأول: التحقق من اختيار الكلمة
+    if (!wordSelectionCompleted || targetWord === 'الرسم الحر') {
+         tg.showAlert('⚠️ يرجى اختيار كلمة أولاً قبل إرسال الرسم!');
+         if (wordDialog) wordDialog.style.display = 'flex'; // إعادة عرض مربع الحوار
+         return;
+    }
+    
     if (!tg) { 
         alert('⚠️ لم يتم اكتشاف بيئة تيليجرام.');
         return;
@@ -552,17 +559,20 @@ function sendToTelegram() {
         if (data.success) {
             const imageUrl = data.data.url;
             
-            // 🚨 التغيير الحاسم هنا: إرسال الكلمة المستهدفة مع الرابط
-            const MESSAGE_PREFIX = "DOODLE_DATA::";
-            // نستخدم targetWord المعرف في النطاق الأعلى
-            const messageToSend = `${MESSAGE_PREFIX}${imageUrl}::${targetWord}`; 
+            // 🚨 التعديل الثاني: تشفير الكلمة
+            const encodedWord = encodeURIComponent(targetWord);
+            
+            // 4. إرسال رابط الصورة والكلمة المشفرة
+            // البادئة الجديدة: DOODLE_DATA::[URL]::[ENCODED_WORD]
+            const MESSAGE_PREFIX = "DOODLE_DATA::"; 
+            const messageToSend = `${MESSAGE_PREFIX}${imageUrl}::${encodedWord}`;
 
             tg.sendData(messageToSend);
             
-            tg.showAlert('✅ تم إرسال الرسم بنجاح إلى البوت!');
+            tg.showAlert(`✅ تم إرسال رسمتك لكلمة: ${targetWord}!`);
             
         } else {
-            tg.showAlert('❌ فشل الرفع إلى ImgBB: ' + (data.error?.message || 'خطأ غير معروف.'));
+            // ... (بقية منطق الخطأ)
         }
     })
     .catch(error => {
@@ -760,6 +770,52 @@ if (!isResizing) return;
     // ****************************
     // #9. التهيئة (Initialization)
     // ****************************
+function initializeWordSelection() {
+    if (!wordOptionsContainer || !wordDialog) return;
+
+    // ... (منطق اختيار الكلمات)
+    const shuffledWords = [...WORD_LIST].sort(() => 0.5 - Math.random());
+    const chosenWords = shuffledWords.slice(0, 3);
+    
+    wordOptionsContainer.innerHTML = ''; 
+
+    chosenWords.forEach(word => {
+        const button = document.createElement('button');
+        button.textContent = word;
+        
+        // 🌟 التعديل الحاسم: تطبيق تنسيق زر تيليجرام
+        button.style.cssText = `
+            background-color: var(--tg-theme-button-color, #40a7e3);
+            color: var(--tg-theme-button-text-color, #ffffff);
+            border: none;
+            border-radius: 8px;
+            padding: 10px 15px;
+            font-size: 16px;
+            font-weight: bold;
+            cursor: pointer;
+            transition: background-color 0.2s;
+        `;
+        
+        button.addEventListener('click', () => {
+            targetWord = word; 
+            wordSelectionCompleted = true; 
+            
+            const targetWordElement = document.getElementById('targetWordDisplay');
+            if (targetWordElement) {
+                 // 💡 نستخدم لون النص الأساسي لتمييز الكلمة المختارة
+                 targetWordElement.textContent = targetWord;
+                 targetWordElement.style.color = 'var(--tg-theme-text-color, #000)'; 
+                 targetWordElement.style.fontWeight = 'bold';
+            }
+            
+            wordDialog.style.display = 'none'; 
+            tg.HapticFeedback?.notificationOccurred('success');
+        });
+        wordOptionsContainer.appendChild(button);
+    });
+    
+    wordDialog.style.display = 'flex'; 
+}
 
     fixCanvas();
     pushUndo();
@@ -799,6 +855,7 @@ try {
                 canvasContainer.classList.add('tg-scaled');
             }
             // ----------------------------------------------------
+            initializeWordSelection();
 
         }
     } catch(e){
