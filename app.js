@@ -518,6 +518,8 @@ function drawShape(ctx, startX, startY, endX, endY, shapeType) {
     // وظيفة التعبئة (Fill)
 
 
+// ... (الكود في app.js قبل sendToTelegram)
+
 // ****************************
 // #6. وظيفة الإرسال إلى Telegram (مربوطة بزر الحفظ)
 // ****************************
@@ -525,10 +527,10 @@ function sendToTelegram() {
     // ⚠️ نستخدم 'tg' المعرف في النطاق الخارجي (الجزء #1)
     const telegramApp = window.Telegram?.WebApp || null;
     
-    // 🚨 التحقق من اختيار الكلمة قبل الإرسال
+    // 🚨 التحقق من اختيار الكلمة قبل الإرسال (حافظنا على هذا المنطق)
     if (!wordSelectionCompleted || targetWord === 'الرسم الحر') {
-        tg.showAlert('⚠️ يرجى اختيار كلمة أولاً قبل إرسال الرسم!');
-        if (wordDialog) wordDialog.style.display = 'flex'; // إعادة عرض مربع الحوار
+        telegramApp?.showAlert('⚠️ يرجى اختيار كلمة أولاً قبل إرسال الرسم!');
+        if (wordDialog) wordDialog.style.display = 'flex';
         return;
     }
 
@@ -564,9 +566,8 @@ function sendToTelegram() {
         if (data.success) {
             const imageUrl = data.data.url;
             
-            // 🚨 التعديل الحاسم: نرسل URL متبوعاً بالكلمة (مع تشفيرها)
+            // 🚨 التعديل الحاسم: إلحاق الكلمة المشفرة (باستخدام || كفاصل)
             const MESSAGE_PREFIX = "DOODLE_URL::"; 
-            // التنسيق الجديد: DOODLE_URL::[URL]||[WORD]
             const messageToSend = `${MESSAGE_PREFIX}${imageUrl}||${encodeURIComponent(targetWord)}`;
 
             telegramApp.sendData(messageToSend);
@@ -587,7 +588,6 @@ function sendToTelegram() {
         btnSend.addEventListener('click', sendToTelegram); // إعادة معالج الحدث
     });
 }
-
 
     // ****************************
     // #7. معالجات الأحداث (ربط أدوات التحكم)
