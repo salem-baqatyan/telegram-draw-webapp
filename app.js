@@ -525,38 +525,31 @@ function sendToTelegram() {
     // ⚠️ نستخدم 'tg' المعرف في النطاق الخارجي (الجزء #1)
     const telegramApp = window.Telegram?.WebApp || null;
     
-    // 🚨 التعديل الأول: التحقق من اختيار الكلمة
+    // 🚨 التحقق من اختيار الكلمة قبل الإرسال
     if (!wordSelectionCompleted || targetWord === 'الرسم الحر') {
-          tg.showAlert('⚠️ يرجى اختيار كلمة أولاً قبل إرسال الرسم!');
-          if (wordDialog) wordDialog.style.display = 'flex'; // إعادة عرض مربع الحوار
-          return;
+        tg.showAlert('⚠️ يرجى اختيار كلمة أولاً قبل إرسال الرسم!');
+        if (wordDialog) wordDialog.style.display = 'flex'; // إعادة عرض مربع الحوار
+        return;
     }
-    
-    if (!tg) { 
+
+    if (!telegramApp) { 
         alert('⚠️ لم يتم اكتشاف بيئة تيليجرام.');
         return;
     }
-    // ❌ تم إزالة التحقق من chatID لأنه لم يعد مطلوباً للإرسال إلى الخاص
-    /*
-    if (!chatID) {
-        tg.showAlert('⚠️ فشل الإرسال: لم يتم استلام معرف الدردشة. يرجى البدء من المجموعة.');
-        return;
-    }
-    */
     
     // منع النقر المزدوج أثناء الرفع
     btnSend.removeEventListener('click', sendToTelegram);
 
     // مفتاح API الخاص بك من ImgBB
-    const IMGBB_API_KEY = "139076adc49c3adbfb9a56a6792a5c7a"; // يُفضل وضع مفتاحك الحقيقي هنا
+    const IMGBB_API_KEY = "adcb6daec9bef4d4d64dc34f2f8ca568";
     
     // 1. استخراج الصورة من mainCanvas
     const dataURL = mainCanvas.toDataURL('image/jpeg', 0.8);
     const base64Image = dataURL.replace(/^data:image\/[^;]+;base64,/, '');
 
     // 2. إظهار حالة التحميل
-    tg.MainButton.setText('جاري الرفع...').show().disable();
-    tg.HapticFeedback?.impactOccurred('medium');
+    telegramApp.MainButton.setText('جاري الرفع...').show().disable();
+    telegramApp.HapticFeedback?.impactOccurred('medium');
 
     // 3. رفع الصورة إلى ImgBB
     fetch(`https://api.imgbb.com/1/upload?key=${IMGBB_API_KEY}`, {
@@ -571,24 +564,26 @@ function sendToTelegram() {
         if (data.success) {
             const imageUrl = data.data.url;
             
-            // 🚨 التعديل الحاسم: نرسل URL و الكلمة فقط (بدون chatID)
-            const messageToSend = `DOODLE_DATA::${imageUrl}::${encodeURIComponent(targetWord)}`; // 💡 تنسيق جديد
+            // 🚨 التعديل الحاسم: نرسل URL متبوعاً بالكلمة (مع تشفيرها)
+            const MESSAGE_PREFIX = "DOODLE_URL::"; 
+            // التنسيق الجديد: DOODLE_URL::[URL]||[WORD]
+            const messageToSend = `${MESSAGE_PREFIX}${imageUrl}||${encodeURIComponent(targetWord)}`;
+
+            telegramApp.sendData(messageToSend);
             
-            tg.sendData(messageToSend);
-            
-            tg.showAlert(`✅ تم إرسال رسمتك لكلمة: ${targetWord}!`);
+            telegramApp.showAlert(`✅ تم إرسال رسمتك لكلمة: ${targetWord}!`);
             
         } else {
-            tg.showAlert('❌ فشل الرفع إلى ImgBB.');
+            telegramApp.showAlert('❌ فشل الرفع إلى ImgBB: ' + (data.error?.message || 'خطأ غير معروف.'));
         }
     })
     .catch(error => {
-        tg.showAlert('❌ خطأ في الاتصال بالخادم (ImgBB): ' + error.message);
+        telegramApp.showAlert('❌ خطأ في الاتصال بالخادم (ImgBB): ' + error.message);
         console.error("Fetch Error:", error);
     })
     .finally(() => {
         // إعادة تفعيل الزر وإخفاء زر Telegram
-        tg.MainButton.hide();
+        telegramApp.MainButton.hide();
         btnSend.addEventListener('click', sendToTelegram); // إعادة معالج الحدث
     });
 }
