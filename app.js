@@ -524,69 +524,117 @@ function drawShape(ctx, startX, startY, endX, endY, shapeType) {
 // #6. وظيفة الإرسال إلى Telegram (مربوطة بزر الحفظ)
 // ****************************
 function sendToTelegram() {
+
     // ⚠️ نستخدم 'tg' المعرف في النطاق الخارجي (الجزء #1)
+
     const telegramApp = window.Telegram?.WebApp || null;
-    
-    // 🚨 التحقق من اختيار الكلمة قبل الإرسال (حافظنا على هذا المنطق)
-    if (!wordSelectionCompleted || targetWord === 'الرسم الحر') {
-        telegramApp?.showAlert('⚠️ يرجى اختيار كلمة أولاً قبل إرسال الرسم!');
-        if (wordDialog) wordDialog.style.display = 'flex';
+
+    if (!tg) {
+
+        alert('⚠️ لم يتم اكتشاف بيئة تيليجرام.');
+
         return;
+
     }
 
-    if (!telegramApp) { 
-        alert('⚠️ لم يتم اكتشاف بيئة تيليجرام.');
-        return;
-    }
-    
+   
+
     // منع النقر المزدوج أثناء الرفع
+
     btnSend.removeEventListener('click', sendToTelegram);
 
+
+
     // مفتاح API الخاص بك من ImgBB
-    const IMGBB_API_KEY = "139076adc49c3adbfb9a56a6792a5c7a";
-    
+
+    const IMGBB_API_KEY = "139076adc49c3adbfb9a56a6792a5c7a"; // يُفضل وضع مفتاحك الحقيقي هنا
+
+   
+
     // 1. استخراج الصورة من mainCanvas
+
     const dataURL = mainCanvas.toDataURL('image/jpeg', 0.8);
+
     const base64Image = dataURL.replace(/^data:image\/[^;]+;base64,/, '');
 
+
+
     // 2. إظهار حالة التحميل
-    telegramApp.MainButton.setText('جاري الرفع...').show().disable();
-    telegramApp.HapticFeedback?.impactOccurred('medium');
+
+    tg.MainButton.setText('جاري الرفع...').show().disable();
+
+    tg.HapticFeedback?.impactOccurred('medium');
+
+
 
     // 3. رفع الصورة إلى ImgBB
-    fetch(`https://api.imgbb.com/1/upload?key=${IMGBB_API_KEY}`, {
-        method: 'POST',
-        headers: {
-            'Content-Type': 'application/x-www-form-urlencoded'
-        },
-        body: `image=${encodeURIComponent(base64Image)}`
-    })
-    .then(response => response.json())
-    .then(data => {
-        if (data.success) {
-            const imageUrl = data.data.url;
-            
-            // 🚨 التعديل الحاسم: إلحاق الكلمة المشفرة (باستخدام || كفاصل)
-            const MESSAGE_PREFIX = "DOODLE_URL::"; 
-            const messageToSend = `${MESSAGE_PREFIX}${imageUrl}||${encodeURIComponent(targetWord)}`;
 
-            telegramApp.sendData(messageToSend);
-            
-            telegramApp.showAlert(`✅ تم إرسال رسمتك لكلمة: ${targetWord}!`);
-            
+    fetch(`https://api.imgbb.com/1/upload?key=${IMGBB_API_KEY}`, {
+
+        method: 'POST',
+
+        headers: {
+
+            'Content-Type': 'application/x-www-form-urlencoded'
+
+        },
+
+        body: `image=${encodeURIComponent(base64Image)}`
+
+    })
+
+    .then(response => response.json())
+
+    .then(data => {
+
+        if (data.success) {
+
+            const imageUrl = data.data.url;
+
+           
+
+            // 4. إرسال رابط الصورة باستخدام البادئة المتوقعة من البوت
+
+            const MESSAGE_PREFIX = "DOODLE_URL::";
+
+            const messageToSend = MESSAGE_PREFIX + imageUrl;
+
+
+
+            tg.sendData(messageToSend);
+
+           
+
+            tg.showAlert('✅ تم إرسال الرابط بنجاح إلى البوت!');
+
+           
+
         } else {
-            telegramApp.showAlert('❌ فشل الرفع إلى ImgBB: ' + (data.error?.message || 'خطأ غير معروف.'));
+
+            tg.showAlert('❌ فشل الرفع إلى ImgBB: ' + (data.error?.message || 'خطأ غير معروف.'));
+
         }
+
     })
+
     .catch(error => {
-        telegramApp.showAlert('❌ خطأ في الاتصال بالخادم (ImgBB): ' + error.message);
+
+        tg.showAlert('❌ خطأ في الاتصال بالخادم (ImgBB): ' + error.message);
+
         console.error("Fetch Error:", error);
+
     })
+
     .finally(() => {
+
         // إعادة تفعيل الزر وإخفاء زر Telegram
-        telegramApp.MainButton.hide();
+
+        tg.MainButton.hide();
+
         btnSend.addEventListener('click', sendToTelegram); // إعادة معالج الحدث
+
     });
+
 }
 
     // ****************************
