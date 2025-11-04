@@ -541,7 +541,7 @@ function sendToTelegram() {
     btnSend.removeEventListener('click', sendToTelegram);
 
     // مفتاح API الخاص بك من ImgBB
-    const IMGBB_API_KEY = "adcb6daec9bef4d4d64dc34f2f8ca568";
+    const IMGBB_API_KEY = "139076adc49c3adbfb9a56a6792a5c7a";
     
     // 1. استخراج الصورة من mainCanvas
     const dataURL = mainCanvas.toDataURL('image/jpeg', 0.8);
