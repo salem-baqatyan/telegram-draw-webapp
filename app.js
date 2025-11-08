@@ -397,54 +397,63 @@
     // ****************************
     // #6. وظيفة الإرسال إلى Telegram (لم تتغير)
     // ****************************
-    function sendToTelegram() {
-        const telegramApp = window.Telegram?.WebApp || null;
-        if (!tg) {
-            alert('⚠️ لم يتم اكتشاف بيئة تيليجرام.');
-            return;
-        }
-
-        btnSend.removeEventListener('click', sendToTelegram);
-
-        const IMGBB_API_KEY = "139076adc49c3adbfb9a56a6792a5c7a";
-
-        const dataURL = mainCanvas.toDataURL('image/jpeg', 0.8);
-        const base64Image = dataURL.replace(/^data:image\/[^;]+;base64,/, '');
-
-        tg.MainButton.setText('جاري الرفع...').show().disable();
-        tg.HapticFeedback?.impactOccurred('medium');
-
-        fetch(`https://api.imgbb.com/1/upload?key=${IMGBB_API_KEY}`, {
-            method: 'POST',
-            headers: {
-                'Content-Type': 'application/x-www-form-urlencoded'
-            },
-            body: `image=${encodeURIComponent(base64Image)}`
-        })
-            .then(response => response.json())
-            .then(data => {
-                if (data.success) {
-const imageUrl = data.data.url;
-        const MESSAGE_PREFIX = "DOODLE_URL::";
-        const messageToSend = `${MESSAGE_PREFIX}${imageUrl}::${currentWord}`; 
-        
-        // 👈 هذه الدالة هي التي ترسل البيانات إلى البوت
-        tg.sendData(messageToSend); 
-        
-        tg.showAlert('✅ تم إرسال الرابط بنجاح إلى البوت!');
-                } else {
-                    tg.showAlert('❌ فشل الرفع إلى ImgBB: ' + (data.error?.message || 'خطأ غير معروف.'));
-                }
-            })
-            .catch(error => {
-                tg.showAlert('❌ خطأ في الاتصال بالخادم (ImgBB): ' + error.message);
-                console.error("Fetch Error:", error);
-            })
-            .finally(() => {
-                tg.MainButton.hide();
-                btnSend.addEventListener('click', sendToTelegram);
-            });
+function sendToTelegram() {
+    // ⚠️ نستخدم 'tg' المعرف في النطاق الخارجي (الجزء #1)
+    const telegramApp = window.Telegram?.WebApp || null;
+    if (!tg) { 
+        alert('⚠️ لم يتم اكتشاف بيئة تيليجرام.');
+        return;
     }
+    
+    // منع النقر المزدوج أثناء الرفع
+    btnSend.removeEventListener('click', sendToTelegram);
+
+    // مفتاح API الخاص بك من ImgBB
+    const IMGBB_API_KEY = "adcb6daec9bef4d4d64dc34f2f8ca568"; // يُفضل وضع مفتاحك الحقيقي هنا
+    
+    // 1. استخراج الصورة من mainCanvas
+    const dataURL = mainCanvas.toDataURL('image/jpeg', 0.8);
+    const base64Image = dataURL.replace(/^data:image\/[^;]+;base64,/, '');
+
+    // 2. إظهار حالة التحميل
+    tg.MainButton.setText('جاري الرفع...').show().disable();
+    tg.HapticFeedback?.impactOccurred('medium');
+
+    // 3. رفع الصورة إلى ImgBB
+    fetch(`https://api.imgbb.com/1/upload?key=${IMGBB_API_KEY}`, {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/x-www-form-urlencoded'
+        },
+        body: `image=${encodeURIComponent(base64Image)}`
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.success) {
+            const imageUrl = data.data.url;
+            
+            // 4. إرسال رابط الصورة باستخدام البادئة المتوقعة من البوت
+            const MESSAGE_PREFIX = "DOODLE_URL::"; 
+            const messageToSend = MESSAGE_PREFIX + imageUrl;
+
+            tg.sendData(messageToSend);
+            
+            tg.showAlert('✅ تم إرسال الرابط بنجاح إلى البوت!');
+            
+        } else {
+            tg.showAlert('❌ فشل الرفع إلى ImgBB: ' + (data.error?.message || 'خطأ غير معروف.'));
+        }
+    })
+    .catch(error => {
+        tg.showAlert('❌ خطأ في الاتصال بالخادم (ImgBB): ' + error.message);
+        console.error("Fetch Error:", error);
+    })
+    .finally(() => {
+        // إعادة تفعيل الزر وإخفاء زر Telegram
+        tg.MainButton.hide();
+        btnSend.addEventListener('click', sendToTelegram); // إعادة معالج الحدث
+    });
+}
 
 
     // ****************************
