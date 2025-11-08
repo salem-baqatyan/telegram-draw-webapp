@@ -360,42 +360,30 @@
     </div>
   </div>
   
-<div id="wordSelectionDialog" style="
+<div id="wordDialog" class="word-dialog" style="
     position: fixed;
-    top: 0; /* يبدأ من الأعلى */
-    left: 0;
-    width: 100%;
-    height: 100%;
-    background-color: rgba(0, 0, 0, 0.7); /* خلفية شفافة لتركيز المستخدم */
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
     z-index: 1000;
-    display: none; /* مخفي افتراضياً - يتم عرضه بواسطة JavaScript */
-    justify-content: center;
-    align-items: center;
+    background-color: var(--tg-theme-secondary-bg-color, #f1f1f1);
+    border-radius: 10px;
+    padding: 20px;
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.2);
+    display: none; /* سيظهر تلقائياً عبر JavaScript عند التحميل */
+    text-align: center;
+    max-width: 80%;
 ">
-    <div style="
-        /* تصميم الحاوية الداخلية (مثل shapeDialog) */
-        background-color: var(--tg-theme-secondary-bg-color, #f1f1f1);
-        border-radius: 10px;
-        padding: 20px;
-        box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
-        max-width: 80%;
-        text-align: center;
+    <h3 style="color: var(--tg-theme-text-color, #000); margin-top: 0; margin-bottom: 20px;">
+        اختر الكلمة التي تريد رسمها
+    </h3>
+    <div id="wordOptions" style="
+        display: flex; 
+        gap: 15px; 
+        justify-content: center;
+        flex-wrap: wrap; /* للسماح بعرض الكلمات في عدة صفوف */
     ">
-        <h3 style="
-            color: var(--tg-theme-text-color, #000); 
-            margin-top: 0; 
-            margin-bottom: 20px;
-            font-size: 18px;
-        ">اختر الكلمة التي سترسمها:</h3>
-        
-        <div id="wordOptions" style="
-            display: flex; 
-            flex-wrap: wrap; /* تسمح بلف الأزرار إذا كانت كثيرة */
-            gap: 10px; 
-            justify-content: center;
-        ">
-            </div>
-    </div>
+        </div>
 </div>
 
   <script src="app.js"></script>
