@@ -421,14 +421,16 @@
             },
             body: `image=${encodeURIComponent(base64Image)}`
         })
-            .then(response => response.json())
-            .then(data => {
-                if (data.success) {
-                    const imageUrl = data.data.url;
-                    const MESSAGE_PREFIX = "DOODLE_URL::";
-                    const messageToSend = `${MESSAGE_PREFIX}${imageUrl}::${currentWord}`;
-                    tg.sendData(messageToSend);
-                    tg.showAlert('✅ تم إرسال الرابط بنجاح إلى البوت!');
+.then(data => {
+    if (data.success) {
+        const imageUrl = data.data.url;
+        const MESSAGE_PREFIX = "DOODLE_URL::";
+        const messageToSend = `${MESSAGE_PREFIX}${imageUrl}::${currentWord}`; 
+        
+        // 👈 هذه الدالة هي التي ترسل البيانات إلى البوت
+        tg.sendData(messageToSend); 
+        
+        tg.showAlert('✅ تم إرسال الرابط بنجاح إلى البوت!');
 
                 } else {
                     tg.showAlert('❌ فشل الرفع إلى ImgBB: ' + (data.error?.message || 'خطأ غير معروف.'));
