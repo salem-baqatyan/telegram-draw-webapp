@@ -426,7 +426,7 @@
                 if (data.success) {
                     const imageUrl = data.data.url;
                     const MESSAGE_PREFIX = "DOODLE_URL::";
-                    const messageToSend = `${MESSAGE_PREFIX}${imageUrl}::${currentWord}`; // إرسال الكلمة
+                    const messageToSend = `${MESSAGE_PREFIX}${imageUrl}::${currentWord}`;
                     tg.sendData(messageToSend);
                     tg.showAlert('✅ تم إرسال الرابط بنجاح إلى البوت!');
 
