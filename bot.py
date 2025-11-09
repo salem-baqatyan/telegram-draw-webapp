@@ -24,7 +24,8 @@ from telegram.ext import (
 
 # ====== CONFIG ======
 TOKEN = "8364414600:AAGB1lQRrjoc_9KGLvOVvlwWXMF7n8PXVZg"
-WEBAPP_URL = "https://telegram-draw-webapp.vercel.app/"
+# WEBAPP_URL = "https://telegram-draw-webapp.vercel.app/"
+WEBAPP_URL = "https://telegram-draw-webappsendtogroup.vercel.app/"
 # ====================
 
 logging.basicConfig(level=logging.INFO)
