@@ -394,9 +394,10 @@
     }
 
 
-    // ****************************
-    // #6. وظيفة الإرسال إلى Telegram (لم تتغير)
-    // ****************************
+
+// ****************************
+// #6. وظيفة الإرسال إلى Telegram (المُحدَّثة)
+// ****************************
 function sendToTelegram() {
     // ⚠️ نستخدم 'tg' المعرف في النطاق الخارجي (الجزء #1)
     const telegramApp = window.Telegram?.WebApp || null;
@@ -405,11 +406,17 @@ function sendToTelegram() {
         return;
     }
     
+    // 🎯 الإضافة الجديدة: التحقق من اختيار الكلمة
+    if (currentWord === 'اختر كلمة' || !currentWord) {
+        tg.showAlert('⚠️ يجب اختيار كلمة للرسم أولاً!');
+        return;
+    }
+    
     // منع النقر المزدوج أثناء الرفع
     btnSend.removeEventListener('click', sendToTelegram);
 
     // مفتاح API الخاص بك من ImgBB
-    const IMGBB_API_KEY = "139076adc49c3adbfb9a56a6792a5c7a"; // يُفضل وضع مفتاحك الحقيقي هنا
+    const IMGBB_API_KEY = "139076adc49c3adbfb9a56a6792a5c7a";
     
     // 1. استخراج الصورة من mainCanvas
     const dataURL = mainCanvas.toDataURL('image/jpeg', 0.8);
@@ -432,13 +439,14 @@ function sendToTelegram() {
         if (data.success) {
             const imageUrl = data.data.url;
             
-            // 4. إرسال رابط الصورة باستخدام البادئة المتوقعة من البوت
+            // 4. الإرسال المُحدَّث: تضمين الكلمة ورابط الصورة
+            // الصيغة الجديدة المتوقعة من البوت: DOODLE_URL::الكلمة::الرابط
             const MESSAGE_PREFIX = "DOODLE_URL::"; 
-            const messageToSend = MESSAGE_PREFIX + imageUrl;
+            const messageToSend = `${MESSAGE_PREFIX}${currentWord}::${imageUrl}`; // 🎯 التعديل الرئيسي هنا
 
             tg.sendData(messageToSend);
             
-            tg.showAlert('✅ تم إرسال الرابط بنجاح إلى البوت!');
+            tg.showAlert(`✅ تم إرسال رسمة كلمة "${currentWord}" بنجاح إلى البوت!`);
             
         } else {
             tg.showAlert('❌ فشل الرفع إلى ImgBB: ' + (data.error?.message || 'خطأ غير معروف.'));
@@ -454,7 +462,6 @@ function sendToTelegram() {
         btnSend.addEventListener('click', sendToTelegram); // إعادة معالج الحدث
     });
 }
-
 
     // ****************************
     // #7. معالجات الأحداث (ربط أدوات التحكم)
