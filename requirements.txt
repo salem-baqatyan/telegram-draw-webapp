@@ -1,5 +1,5 @@
-Flask
+Flask[async]
 requests
 flask-cors
 gunicorn
-python-telegram-bot  # 👈 هذا هو الإضافة الضرورية
+python-telegram-bot
