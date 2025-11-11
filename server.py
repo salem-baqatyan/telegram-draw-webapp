@@ -6,7 +6,7 @@ import base64
 import io
 import json
 import logging
-from telegram import Update, InlineKeyboardMarkup, InlineKeyboardButton
+from telegram import Update, InlineKeyboardMarkup, InlineKeyboardButton ,Bot
 
 # ******************************
 # ⚠️ المتغيرات الأساسية (عليك تحديثها لاحقاً)
@@ -18,6 +18,7 @@ WEBAPP_URL = "https://telegram-draw-webappsendtogroup.vercel.app"
 # سيتم تحديثه تلقائياً عند النشر، لكن يمكنك استخدام متغير بيئة إذا أردت
 RENDER_WEBHOOK_URL = "https://api.telegram.org/bot8364414600:AAGB1lQRrjoc_9KGLvOVvlwWXMF7n8PXVZg/setWebhook?url=https://telegram-draw-api-bot.onrender.com/webhook" 
 
+BOT_INSTANCE = Bot(token=BOT_TOKEN)
 # ******************************
 # 🌐 تهيئة Flask
 # ******************************
@@ -71,19 +72,23 @@ def send_image():
 
 async def handle_start_command(update: Update):
     """يعالج أمر /draw."""
+    # نستخدم كائن البوت الذي أنشأناه
+    bot = BOT_INSTANCE 
+    
     if not update.message or not update.effective_chat:
         return
         
     chat_id = update.effective_chat.id
-    # بناء الرابط مع تمرير الـ chat_id كمعامل استعلام
     link = f"{WEBAPP_URL}?chat_id={chat_id}"
 
     keyboard = InlineKeyboardMarkup([
         [InlineKeyboardButton("🎨 افتح لوحة الرسم", url=link)]
     ])
-
-    await update.message.reply_text(
-        "افتح لوحة الرسم وارسم ما تريد، ثم اضغط حفظ لإرسالها هنا:",
+    
+    # نستخدم bot.send_message بدلاً من update.message.reply_text
+    await bot.send_message(
+        chat_id=chat_id,
+        text="افتح لوحة الرسم وارسم ما تريد، ثم اضغط حفظ لإرسالها هنا:",
         reply_markup=keyboard
     )
 
@@ -93,19 +98,24 @@ async def webhook_handler():
     try:
         # قراءة التحديث من الطلب
         data = request.get_json(force=True)
-        update = Update.de_json(data, None)
+        # نمرر التوكن إلى Update.de_json لربط التحديث بالبوت
+        update = Update.de_json(data, BOT_INSTANCE) 
 
-        # تجهيز التطبيق لمعالجة التحديث
-        # ملاحظة: Telegram API for Python لا يتطلب ContextTypes هنا
-        if update.message and update.message.text and update.message.text.startswith('/draw'):
-            await handle_start_command(update)
+        # التحقق من نوع التحديث والرسالة
+        if update.message and update.message.text:
+            command = update.message.text.split()[0]
+            
+            if command == '/draw':
+                await handle_start_command(update)
+            # يمكن إضافة معالجات لأوامر أخرى هنا
 
         return jsonify({"status": "ok"}), 200
     
     except Exception as e:
         logger.error(f"Error processing webhook: {e}")
-        return jsonify({"status": "error", "message": str(e)}), 500
-
+        # يجب أن نعيد 200 إلى تليجرام لتجنب إعادة إرسال نفس التحديث
+        return jsonify({"status": "error", "message": str(e)}), 200
+    
 # ******************************
 # ⚙️ وظيفة لتعيين Webhook (يتم تشغيلها مرة واحدة)
 # ******************************
