@@ -16,7 +16,7 @@ BOT_TOKEN = "8364414600:AAGB1lQRrjoc_9KGL_OVvlwWXMF7n8PXVZg"
 WEBAPP_URL = "https://telegram-draw-webappsendtogroup.vercel.app" 
 # الرابط الذي ستحصل عليه من Render بعد النشر
 # سيتم تحديثه تلقائياً عند النشر، لكن يمكنك استخدام متغير بيئة إذا أردت
-RENDER_WEBHOOK_URL = "https://api.telegram.org/bot8364414600:AAGB1lQRrjoc_9KGL_OVvlwWXMF7n8PXVZg/setWebhook?url=https://telegram-draw-api-bot.onrender.com/webhook" 
+RENDER_WEBHOOK_URL = "https://api.telegram.org/bot8364414600:AAGB1lQRrjoc_9KGLvOVvlwWXMF7n8PXVZg/setWebhook?url=https://telegram-draw-api-bot.onrender.com/webhook" 
 
 # ******************************
 # 🌐 تهيئة Flask
