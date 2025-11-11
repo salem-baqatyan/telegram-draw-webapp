@@ -1,8 +1,8 @@
-from server import Flask, request, jsonify
+from flask import Flask, request, jsonify # ✅
+from flask_cors import CORS # إذا كنت تستخدم CORS
 import requests
 import base64
 import io
-from flask_cors import CORS # 👈 إضافة هذه المكتبة للتعامل مع طلبات الـ CORS من Vercel
 
 # ⚠️ تم تحديث هذه القيمة بناءً على طلبك
 BOT_TOKEN = "8364414600:AAGB1lQRrjoc_9KGL_OVvlwWXMF7n8PXVZg" 
