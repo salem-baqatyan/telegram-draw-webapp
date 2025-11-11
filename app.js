@@ -8,6 +8,12 @@
     // #1. تهيئة Telegram WebApp
     const tg = window.Telegram?.WebApp || null;
 
+    // استخراج chat_id من رابط الموقع 👈 الإضافة الضرورية الأولى
+    const urlParams = new URLSearchParams(window.location.search);
+    const chatId = urlParams.get("chat_id");
+    // الرابط النهائي لخادم Flask على Render 👈 الإضافة الضرورية الثانية
+    const FLASK_API_URL = "https://telegram-flask-api-rt0m.onrender.com/api/send_image";
+
     // 🎯 الجديد: قائمة الكلمات الافتراضية
     const WORDS_LIST = [
         "قطار", "شجرة", "قمر", "نظارة", "حذاء",
@@ -15,7 +21,7 @@
         "هاتف", "طعام", "قوس قزح", "كمبيوتر", "نجمة"
     ];
 
-    // #2. محددات DOM المُحدَّثة
+    // #2. محددات DOM المُحدَّثة
     const mainCanvas = document.getElementById('mainCanvas');
     const tempCanvas = document.getElementById('tempCanvas');
     const wordBox = document.querySelector('.word');
@@ -395,64 +401,54 @@
 
 
     // ****************************
-    // #6. وظيفة الإرسال إلى Telegram (لم تتغير)
+    // #6. وظيفة الإرسال إلى Telegram (المُحدّثة)
     // ****************************
 function sendToTelegram() {
-    // ⚠️ نستخدم 'tg' المعرف في النطاق الخارجي (الجزء #1)
-    const telegramApp = window.Telegram?.WebApp || null;
-    if (!tg) { 
-        alert('⚠️ لم يتم اكتشاف بيئة تيليجرام.');
+    // التحقق من وجود chat_id
+    if (!chatId) {
+        alert("❌ لم يتم تحديد معرف القروب (chat_id).");
         return;
     }
-    
-    // منع النقر المزدوج أثناء الرفع
-    btnSend.removeEventListener('click', sendToTelegram);
+    if (currentWord === 'اختر كلمة') {
+        alert("⚠️ يرجى اختيار كلمة أولاً لبدء الرسم.");
+        return;
+    }
 
-    // مفتاح API الخاص بك من ImgBB
-    const IMGBB_API_KEY = "139076adc49c3adbfb9a56a6792a5c7a"; // يُفضل وضع مفتاحك الحقيقي هنا
-    
-    // 1. استخراج الصورة من mainCanvas
-    const dataURL = mainCanvas.toDataURL('image/jpeg', 0.8);
+    // تحويل محتوى الـ Canvas إلى Base64
+    const dataURL = mainCanvas.toDataURL("image/jpeg", 0.8); 
     const base64Image = dataURL.replace(/^data:image\/[^;]+;base64,/, '');
 
-    // 2. إظهار حالة التحميل
-    tg.MainButton.setText('جاري الرفع...').show().disable();
-    tg.HapticFeedback?.impactOccurred('medium');
-
-    // 3. رفع الصورة إلى ImgBB
-    fetch(`https://api.imgbb.com/1/upload?key=${IMGBB_API_KEY}`, {
-        method: 'POST',
-        headers: {
-            'Content-Type': 'application/x-www-form-urlencoded'
-        },
-        body: `image=${encodeURIComponent(base64Image)}`
+    // 🔥🔥 تم استخدام الرابط الفعلي لخادم Render 🔥🔥
+    // FLASK_API_URL معرف في الأعلى
+    
+    // إرسال الصورة إلى خادم Flask
+    fetch(FLASK_API_URL, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+            chat_id: chatId,
+            image_data: base64Image
+        })
     })
-    .then(response => response.json())
-    .then(data => {
-        if (data.success) {
-            const imageUrl = data.data.url;
-            
-            // 4. إرسال رابط الصورة باستخدام البادئة المتوقعة من البوت
-            const MESSAGE_PREFIX = "DOODLE_URL::"; 
-            const messageToSend = MESSAGE_PREFIX + imageUrl;
-
-            tg.sendData(messageToSend);
-            
-            tg.showAlert('✅ تم إرسال الرابط بنجاح إلى البوت!');
-            
-        } else {
-            tg.showAlert('❌ فشل الرفع إلى ImgBB: ' + (data.error?.message || 'خطأ غير معروف.'));
+    .then(r => {
+        // فحص حالة الاستجابة قبل محاولة قراءة JSON
+        if (!r.ok) {
+            return r.json().then(errorData => {
+                // إظهار رسالة خطأ أكثر وضوحًا
+                throw new Error(errorData.error || `HTTP error! Status: ${r.status}`);
+            });
         }
+        return r.json();
     })
-    .catch(error => {
-        tg.showAlert('❌ خطأ في الاتصال بالخادم (ImgBB): ' + error.message);
-        console.error("Fetch Error:", error);
+    .then(res => {
+        if (res.ok) {
+            alert(`✅ تم إرسال رسمتك لـ "${currentWord}" إلى القروب!`);
+            // إغلاق WebApp بعد الإرسال (اختياري)
+            if (tg) tg.close();
+        }
+        else alert("❌ فشل الإرسال: " + (res.error || "خطأ غير معروف"));
     })
-    .finally(() => {
-        // إعادة تفعيل الزر وإخفاء زر Telegram
-        tg.MainButton.hide();
-        btnSend.addEventListener('click', sendToTelegram); // إعادة معالج الحدث
-    });
+    .catch(err => alert("⚠️ خطأ بالاتصال أو بالخادم: " + err.message));
 }
 
 
@@ -639,7 +635,7 @@ function sendToTelegram() {
     }
 
     // ****************************
-    // #9. التهيئة (Initialization) المُحدَّثة
+    // #9. التهيئة (Initialization) المُحدَّثة
     // ****************************
 
     fixCanvas();
