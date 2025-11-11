@@ -2,3 +2,4 @@ Flask
 requests
 flask-cors
 gunicorn
+python-telegram-bot  # 👈 هذا هو الإضافة الضرورية
