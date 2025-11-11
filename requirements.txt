@@ -3,3 +3,4 @@ requests
 flask-cors
 gunicorn
 python-telegram-bot
+eventlet  # 👈 الإضافة الجديدة

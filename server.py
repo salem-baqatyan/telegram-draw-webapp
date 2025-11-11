@@ -11,12 +11,12 @@ from telegram import Update, InlineKeyboardMarkup, InlineKeyboardButton ,Bot
 # ******************************
 # ⚠️ المتغيرات الأساسية (عليك تحديثها لاحقاً)
 # ******************************
-BOT_TOKEN = "8364414600:AAGB1lQRrjoc_9KGL_OVvlwWXMF7n8PXVZg" 
+BOT_TOKEN = "8364414600:AAFKCVNSd-_2hmcOVjYIZB1-9NOkz394z5o" 
 # رابط موقع Vercel (لا يتغير)
 WEBAPP_URL = "https://telegram-draw-webappsendtogroup.vercel.app" 
 # الرابط الذي ستحصل عليه من Render بعد النشر
 # سيتم تحديثه تلقائياً عند النشر، لكن يمكنك استخدام متغير بيئة إذا أردت
-RENDER_WEBHOOK_URL = "https://api.telegram.org/bot8364414600:AAGB1lQRrjoc_9KGLvOVvlwWXMF7n8PXVZg/setWebhook?url=https://telegram-draw-api-bot.onrender.com/webhook" 
+RENDER_WEBHOOK_URL = "https://api.telegram.org/bot8364414600:AAFKCVNSd-_2hmcOVjYIZB1-9NOkz394z5o/setWebhook?url=https://telegram-draw-api-bot.onrender.com/webhook" 
 
 BOT_INSTANCE = Bot(token=BOT_TOKEN)
 # ******************************
