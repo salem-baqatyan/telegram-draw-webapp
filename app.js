@@ -9,6 +9,7 @@
         "طائرة", "جبل", "مفتاح", "جرس", "منزل",
         "هاتف", "طعام", "قوس قزح", "كمبيوتر", "نجمة"
     ];
+    let usedWords = [];
 
     // #2. محددات DOM المُحدَّثة
     const mainCanvas = document.getElementById('mainCanvas');
@@ -59,7 +60,7 @@
     let brushOpacity = 1.0;
     let shapeStart = { x: 0, y: 0 };
     let selectedShape = null;
-    let currentWord = 'اختر كلمة';
+    let currentWord = null;
 
     const SHAPE_ICON_DEFAULT = `<svg fill="currentColor" version="1.1" id="Icons" xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink"viewBox="0 0 32 32" xml:space="preserve"><g><path d="M22,29c-4.4,0-8-3.6-8-8s3.6-8,8-8s8,3.6,8,8S26.4,29,22,29z"/></g><path d="M12,21c0-3.5,1.8-6.5,4.4-8.3l-3-4.4C12.9,7.5,12,7,11,7S9.1,7.5,8.6,8.3l-6,8.9c-0.7,1-0.7,2.2-0.2,3.2C2.9,21.4,3.9,22,5,22h7.1C12,21.7,12,21.3,12,21z"/><path d="M25,4h-8c-1.4,0-2.5,0.9-2.9,2.1c0.4,0.3,0.7,0.6,0.9,1l3.1,4.6c1.2-0.5,2.5-0.8,3.8-0.8c2.3,0,4.3,0.8,6,2V7C28,5.3,26.7,4,25,4z"/>svg>`;
     const SHAPE_ICON_SQUARE = `<svg width="24" height="24" viewBox="0 0 15 15" fill="currentColor" xmlns="http://www.w3.org/2000/svg" style="height: 24px; width: 24px"><path fill-rule="evenodd" clip-rule="evenodd" d="M1 1H1.5H13.5H14V1.5V13.5V14H13.5H1.5H1V13.5V1.5V1ZM2 2V13H13V2H2Z" /></svg>`;
@@ -386,6 +387,52 @@
         ctx.globalAlpha = 1.0;
     }
 
+// 🎯 الجديد: دالة لإنشاء أزرار الكلمات ديناميكياً
+    function generateWordButtons(words) {
+        if (!wordOptionsContainer) return;
+        wordOptionsContainer.innerHTML = '';
+        
+        words.forEach(word => {
+             // ... (HTML لأزرار الكلمات لم يتغير) ...
+            const buttonHtml = `
+                <div class="word-button" data-word="${word}" style="cursor: pointer; margin: 5px;">
+                    <div class="word-switch" style="
+                        width: 90px; 
+                        height: 50px;
+                        display: flex;
+                        align-items: center;
+                        justify-content: center;
+                        border-radius: 8px;
+                        background-color: var(--tg-theme-button-color, #40a7e3);
+                        color: var(--tg-theme-button-text-color, #ffffff);
+                        font-weight: bold;
+                        font-size: 14px;
+                        box-shadow: 0 2px 5px rgba(0, 0, 0, 0.1);
+                        transition: background-color 0.15s;
+                    ">
+                        ${word}
+                    </div>
+                </div>
+            `;
+            wordOptionsContainer.insertAdjacentHTML('beforeend', buttonHtml);
+        });
+    }
+
+    // 🎯 الجديد: جلب كلمات عشوائية مع تجنب التكرار (قدر الإمكان)
+    function getRandomWordsAvoidUsed(list, count) {
+        const availableWords = list.filter(word => !usedWords.includes(word));
+        
+        // إذا استُهلكت جميع الكلمات، يتم إعادة تعيين القائمة
+        if (availableWords.length < count) {
+            usedWords = []; // إعادة تعيين القائمة المستعملة
+            const shuffled = list.sort(() => 0.5 - Math.random());
+            return shuffled.slice(0, count);
+        }
+        
+        const shuffled = availableWords.sort(() => 0.5 - Math.random());
+        return shuffled.slice(0, count);
+    }
+
 
     // ****************************
     // #6. وظيفة الإرسال إلى Telegram (لم تتغير)
@@ -397,6 +444,11 @@ function sendToTelegram() {
         alert('⚠️ لم يتم اكتشاف بيئة تيليجرام.');
         return;
     }
+
+    if (!currentWord) {
+            tg.showAlert('⚠️ يجب اختيار كلمة للرسم أولاً.');
+            return;
+        }
     
     // منع النقر المزدوج أثناء الرفع
     btnSend.removeEventListener('click', sendToTelegram);
@@ -427,8 +479,7 @@ function sendToTelegram() {
             
             // 4. إرسال رابط الصورة باستخدام البادئة المتوقعة من البوت
             const MESSAGE_PREFIX = "DOODLE_URL::"; 
-            const messageToSend = MESSAGE_PREFIX + imageUrl;
-
+            const messageToSend = `${MESSAGE_PREFIX}${imageUrl}::${currentWord}`;
             tg.sendData(messageToSend);
             
             tg.showAlert('✅ تم إرسال الرابط بنجاح إلى البوت!');
@@ -549,6 +600,11 @@ function sendToTelegram() {
             if (wordButton) {
                 const newWord = wordButton.getAttribute('data-word');
                 currentWord = newWord;
+                
+                // إضافة الكلمة إلى قائمة الكلمات المستعملة
+                if (!usedWords.includes(newWord)) {
+                    usedWords.push(newWord);
+                }
 
                 if (wordBox) {
                     wordBox.innerHTML = `${currentWord}`;
@@ -659,16 +715,16 @@ function sendToTelegram() {
         }
 
         // 🎯 الأهم: عرض مربع حوار الكلمات تلقائياً عند التهيئة
-        if (wordDialog && WORDS_LIST.length >= 3) {
-            const initialWords = getRandomWords(WORDS_LIST, 3);
-            generateWordButtons(initialWords);
-            wordDialog.style.display = 'block';
-        } else if (wordBox) {
-             // في حالة فشل عرض الديالوج (لأسباب التصميم مثلاً)، نعرض كلمة افتراضية
-             currentWord = WORDS_LIST[0] || 'ارسم وخمن ⚙️';
-             wordBox.innerHTML = `${currentWord} ⚙️`;
-             wordBox.style.display = 'block';
-        }
+if (wordDialog && WORDS_LIST.length >= 3) {
+        // استخدام الدالة الجديدة لتجنب التكرار
+        const initialWords = getRandomWordsAvoidUsed(WORDS_LIST, 3);
+        generateWordButtons(initialWords);
+        wordDialog.style.display = 'block';
+    } else if (wordBox) {
+         currentWord = WORDS_LIST[0] || 'ارسم وخمن ⚙️';
+         wordBox.innerHTML = `${currentWord} ⚙️`;
+         wordBox.style.display = 'block';
+    }
 
 
     } catch(e){
