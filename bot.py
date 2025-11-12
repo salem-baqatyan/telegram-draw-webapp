@@ -1,4 +1,4 @@
-#!/usr/bin/env python3
+#bot.py
 import logging
 import json
 import base64
@@ -25,7 +25,7 @@ from telegram.ext import (
 )
 
 # ====== CONFIG ======
-TOKEN = "توكن"
+TOKEN = "8364414600:AAFKCVNSd-_2hmcOVjYIZB1-9NOkz394z5o"
 WEBAPP_URL = "https://telegram-draw-webapp.vercel.app/"
 # ====================
 

@@ -1,9 +1,4 @@
 // app.js
-
-/**
- * وظائف لوحة الرسم مع دمج Telegram WebApp
- * (تم تكييفه بناءً على نموذجك وربطه بـ IDs تصميمك)
- */
 (() => {
     // #1. تهيئة Telegram WebApp
     const tg = window.Telegram?.WebApp || null;
@@ -49,24 +44,23 @@
         return;
     }
 
-    const mainCtx = mainCanvas.getContext('2d', { alpha: false }); // سياق الرسم الأساسي (الرسم الدائم)
-    const tempCtx = tempCanvas.getContext('2d', { alpha: true });  // سياق الرسم المؤقت (لحركة الماوس/اللمس)
+    const mainCtx = mainCanvas.getContext('2d', { alpha: false });
+    const tempCtx = tempCanvas.getContext('2d', { alpha: true });
 
     // #3. State
     let drawing = false;
     let tool = 'brush';
     let brushSize = 10;
-    let brushColor = '#000000'; // القيمة الافتراضية
+    let brushColor = '#000000';
     let last = { x: 0, y: 0 };
     const undoStack = [];
     const redoStack = [];
     const MAX_UNDO = 20;
-    let brushOpacity = 1.0; // 1.0 = 100% (كاملة)
+    let brushOpacity = 1.0;
     let shapeStart = { x: 0, y: 0 };
     let selectedShape = null;
-    let currentWord = 'اختر كلمة'; // 🎯 تحديث: القيمة الافتراضية قبل الاختيار
+    let currentWord = 'اختر كلمة';
 
-    // (ثوابت الأشكال SVG... لم تتغير)
     const SHAPE_ICON_DEFAULT = `<svg fill="currentColor" version="1.1" id="Icons" xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink"viewBox="0 0 32 32" xml:space="preserve"><g><path d="M22,29c-4.4,0-8-3.6-8-8s3.6-8,8-8s8,3.6,8,8S26.4,29,22,29z"/></g><path d="M12,21c0-3.5,1.8-6.5,4.4-8.3l-3-4.4C12.9,7.5,12,7,11,7S9.1,7.5,8.6,8.3l-6,8.9c-0.7,1-0.7,2.2-0.2,3.2C2.9,21.4,3.9,22,5,22h7.1C12,21.7,12,21.3,12,21z"/><path d="M25,4h-8c-1.4,0-2.5,0.9-2.9,2.1c0.4,0.3,0.7,0.6,0.9,1l3.1,4.6c1.2-0.5,2.5-0.8,3.8-0.8c2.3,0,4.3,0.8,6,2V7C28,5.3,26.7,4,25,4z"/>svg>`;
     const SHAPE_ICON_SQUARE = `<svg width="24" height="24" viewBox="0 0 15 15" fill="currentColor" xmlns="http://www.w3.org/2000/svg" style="height: 24px; width: 24px"><path fill-rule="evenodd" clip-rule="evenodd" d="M1 1H1.5H13.5H14V1.5V13.5V14H13.5H1.5H1V13.5V1.5V1ZM2 2V13H13V2H2Z" /></svg>`;
     const SHAPE_ICON_CIRCLE = `<svg width="24" height="24" viewBox="0 0 48 48" fill="none" xmlns="http://www.w3.org/2000/svg" style="height: 24px; width: 24px"><circle cx="24" cy="24" r="20" stroke="currentColor" stroke-width="4" fill="none"/></svg>`;
@@ -89,7 +83,6 @@
     // #4. وظائف الدعم
     // ****************************
 
-    // ... (fixCanvas, updateBrushIndicator, pushUndo, doUndo, doRedo, hexToRgb, floodFill لم تتغير) ...
     function fixCanvas() {
         const ratio = window.devicePixelRatio || 1;
         const size = 500;
@@ -409,7 +402,7 @@ function sendToTelegram() {
     btnSend.removeEventListener('click', sendToTelegram);
 
     // مفتاح API الخاص بك من ImgBB
-    const IMGBB_API_KEY = "139076adc49c3adbfb9a56a6792a5c7a"; // يُفضل وضع مفتاحك الحقيقي هنا
+    const IMGBB_API_KEY = "139076adc49c3adbfb9a56a6792a5c7a";
     
     // 1. استخراج الصورة من mainCanvas
     const dataURL = mainCanvas.toDataURL('image/jpeg', 0.8);
@@ -460,7 +453,6 @@ function sendToTelegram() {
     // #7. معالجات الأحداث (ربط أدوات التحكم)
     // ****************************
 
-    // (أحداث الرسم... لم تتغير)
     tempCanvas.addEventListener('mousedown', startDraw);
     tempCanvas.addEventListener('touchstart', startDraw, { passive: false });
     window.addEventListener('mouseup', stopDraw);
@@ -468,7 +460,6 @@ function sendToTelegram() {
     tempCanvas.addEventListener('mousemove', onMove);
     tempCanvas.addEventListener('touchmove', onMove, { passive: false });
 
-    // (منطق تفعيل الأدوات... لم يتغير)
     if (btnPencil) {
         btnPencil.addEventListener('click', () => {
             tool = 'brush';
@@ -541,7 +532,6 @@ function sendToTelegram() {
         });
     }
 
-    // 🎯 التعديل: إظهار مربع حوار الكلمات عند النقر على عرض الكلمة بعد الاختيار الأول
     if (wordBox) {
         wordBox.addEventListener('click', () => {
             if (wordDialog) {
@@ -560,19 +550,15 @@ function sendToTelegram() {
                 const newWord = wordButton.getAttribute('data-word');
                 currentWord = newWord;
 
-                // تحديث عرض الكلمة وإظهار أيقونة الترس
                 if (wordBox) {
-                    wordBox.innerHTML = `${currentWord} ⚙️`;
-                    // 🎯 الحل: إظهار زر الكلمة بعد اختيار الكلمة الأولى
+                    wordBox.innerHTML = `${currentWord}`;
                     wordBox.style.display = 'block';
                 }
 
-                // إخفاء مربع الحوار
                 if (wordDialog) {
                     wordDialog.style.display = 'none';
                 }
 
-                // مسح اللوحة عند اختيار كلمة جديدة
                 pushUndo();
                 mainCtx.fillStyle = '#ffffff';
                 mainCtx.fillRect(0, 0, mainCanvas.width / (window.devicePixelRatio || 1), mainCanvas.height / (window.devicePixelRatio || 1));
@@ -589,14 +575,12 @@ function sendToTelegram() {
             btnShapes?.classList.remove('active');
             tool = 'brush';
         }
-        // 🎯 الجديد: إخفاء ديالوج الكلمات أيضاً
         if (wordDialog && wordDialog.style.display !== 'none') {
             wordDialog.style.display = 'none';
         }
     });
 
     if (btnSend) btnSend.addEventListener('click', sendToTelegram);
-    // (منطق تغيير الألوان وتغيير حجم الفرشاة... لم يتغير)
     if (colorInput) {
         colorInput.addEventListener('input', (e) => {
             brushColor = e.target.value;
@@ -608,7 +592,6 @@ function sendToTelegram() {
             }
         });
     }
-    // (منطق تغيير حجم وشفافية الفرشاة... لم يتغير)
     let isResizing = false;
     let startY = 0;
     let startX = 0;
@@ -682,7 +665,7 @@ function sendToTelegram() {
             wordDialog.style.display = 'block';
         } else if (wordBox) {
              // في حالة فشل عرض الديالوج (لأسباب التصميم مثلاً)، نعرض كلمة افتراضية
-             currentWord = WORDS_LIST[0] || 'فطيرة ⚙️';
+             currentWord = WORDS_LIST[0] || 'ارسم وخمن ⚙️';
              wordBox.innerHTML = `${currentWord} ⚙️`;
              wordBox.style.display = 'block';
         }
