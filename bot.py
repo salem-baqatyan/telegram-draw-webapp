@@ -1,6 +1,8 @@
 import logging
 import json
 import re
+import html # 💡 إضافة استيراد html
+from unidecode import unidecode # 💡 إضافة استيراد unidecode (يجب تثبيتها: pip install unidecode)
 from telegram import (
     Update,
     ReplyKeyboardMarkup,
@@ -30,6 +32,103 @@ logger = logging.getLogger(__name__)
 game_states = {}
 last_user_chat_id = {}
 scores = {} # {user_id: points}
+
+# ------------------------------------
+# 💡 الدوال المساعدة لتنسيق وعرض اسم اللاعب
+# ------------------------------------
+def get_player_mention(player_data):
+    """إنشاء إشارة (mention) للاعب."""
+    user_id = player_data.get('id')
+    # يجب استخدام الاسم الذي سيتم عرضه لتجنب الـ escape المزدوج
+    name = player_data.get('name') 
+    return f'<a href="tg://user?id={user_id}">{name}</a>'
+
+def get_display_name(player_data, player_id):
+    """الحصول على اسم مناسب للعرض."""
+    username = player_data.get('username')
+    name = player_data.get('first_name') # نستخدم first_name من object الـ User
+
+    # ✅ 1. إذا عنده يوزر نيم نستخدمه مباشرة
+    if username:
+        return f"@{username}"
+
+    # ✅ 2. إذا الاسم يحتوي على حروف إنجليزية، نستخدمه كما هو (مع الهروب لضمان التنسيق)
+    if name and re.search(r'[A-Za-z]', name):
+        return html.escape(name)
+
+    # ✅ 3. إذا الاسم بالعربي، نحاول نحوله لإنجليزية تقريبية
+    if name:
+        try:
+            transliterated = unidecode(name)
+            clean_name = re.sub(r'[^A-Za-z0-9]', '', transliterated)
+            # نستخدم الاسم المترجم إذا كان نظيفاً وطويلاً بما فيه الكفاية أو نعود للاسم الافتراضي
+            if clean_name and len(clean_name) >= 3:
+                return clean_name
+            else:
+                return html.escape(name) # نعود للاسم الأصلي مع الهروب
+        except Exception:
+            return html.escape(name) # فشل التحويل، نعود للاسم الأصلي مع الهروب
+
+    # ✅ 4. إذا لا يوجد اسم أصلاً
+    return f"Player_{player_id}"
+
+# ------------------------------------
+# 💡 الدالة الجديدة لتنسيق الجدول (مُعدَّلة لاستخدام الدوال الجديدة)
+# ------------------------------------
+async def format_scores_table(context, chat_id, current_artist_id=None):
+    if not scores:
+        return "لا توجد نقاط مسجلة بعد. ابدأ اللعب! 🎮"
+    
+    # 1. فرز النتائج تنازلياً
+    sorted_scores = sorted(scores.items(), key=lambda item: item[1], reverse=True)
+    
+    # 2. تجهيز الترويسة
+    table_header = "\n**🏆 الترتيب الحالي للعبة خمن وارسم 🏆**\n"
+    table_header += "```\n"
+    table_header += "# | الاسم           | النقاط | الحالة\n"
+    table_header += "--|----------------|--------|-------\n"
+    
+    table_rows = []
+    
+    # 3. بناء صفوف الجدول
+    for index, (user_id, score) in enumerate(sorted_scores):
+        
+        # جلب بيانات المستخدم
+        try:
+            member = await context.bot.get_chat_member(chat_id, user_id)
+            user_data = member.user
+            player_info = {
+                'id': user_id,
+                'first_name': user_data.first_name,
+                'username': user_data.username
+            }
+            # الحصول على الاسم المنسق للعرض
+            display_name = get_display_name(player_info, user_id)
+            
+        except Exception:
+            display_name = f"Player_{user_id}" # اسم افتراضي إذا فشل الجلب
+        
+        # تحديد حالة الدور
+        status_emoji = ""
+        if user_id == current_artist_id:
+            status_emoji = "✍️" # الرسام الحالي
+        elif score > 0:
+            status_emoji = "🎉" 
+            
+        # تنسيق السطر باستخدام padding
+        row = "{:<2} | {:<14} | {:<6} | {}".format(
+            index + 1,
+            display_name[:14],  # اقتصار الاسم ليتناسب مع الجدول
+            score,
+            status_emoji
+        )
+        table_rows.append(row)
+    
+    # 4. تجميع الجدول
+    table_footer = "```"
+    # يتم استخدام Parse Mode: HTML للرسالة التي تحتوي على هذا الجدول.
+    return table_header + "\n".join(table_rows) + table_footer
+
 
 # ------------------------------------
 # 1. معالج بدء اللعبة (في المجموعة)
@@ -100,7 +199,7 @@ async def webapp_data_handler(update: Update, context: ContextTypes.DEFAULT_TYPE
         return
 
     # 1. تحليل البيانات
-    # نتوقع البيانات بالصيغة: "DOODLE_DATA::[image_url]::[word]"
+    # تم التعديل هنا: استخدام DOODLE_URL:: كما في الكود المرسل
     match = re.search(r"^DOODLE_URL::(.+?)::(.+)", data, re.DOTALL)
     
     if match:
@@ -135,7 +234,7 @@ async def webapp_data_handler(update: Update, context: ContextTypes.DEFAULT_TYPE
     await update.effective_message.reply_text("تم استلام بيانات مجهولة من WebApp.")
 
 # ------------------------------------
-# 4. معالج التخمينات (في المجموعة)
+# 4. معالج التخمينات (في المجموعة) - مُعدَّل
 # ------------------------------------
 async def guess_handler(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     group_chat_id = update.message.chat_id
@@ -163,62 +262,47 @@ async def guess_handler(update: Update, context: ContextTypes.DEFAULT_TYPE) -> N
         game_states[group_chat_id]['guessed'] = True # تحديد أن الكلمة قد خمنت
         
         # 4. تسجيل النقاط
-        # نقطة للرسام
         scores[artist_id] = scores.get(artist_id, 0) + 1
-        # نقطة للمخمن
         scores[guesser_id] = scores.get(guesser_id, 0) + 1
         
+        # جلب معلومات الرسام والمخمن للعرض في الرسالة
         artist_info = await context.bot.get_chat_member(group_chat_id, artist_id)
-        artist_name = artist_info.user.first_name
-        guesser_name = guesser.first_name
+        guesser_info = await context.bot.get_chat_member(group_chat_id, guesser_id)
+        
+        artist_mention = get_player_mention({'id': artist_id, 'name': artist_info.user.first_name})
+        guesser_mention = get_player_mention({'id': guesser_id, 'name': guesser_info.user.first_name})
         
         # 5. إرسال رسالة الفوز والنتائج
-        
-        # جلب قائمة النقاط
-        sorted_scores = sorted(scores.items(), key=lambda item: item[1], reverse=True)
-        top_scores = "\n".join([
-            f"- {await get_user_name(context, user_id, group_chat_id)}: {score} نقطة" 
-            for user_id, score in sorted_scores[:5] # عرض أول 5 نتائج
-        ])
+        score_table = await format_scores_table(context, group_chat_id)
 
         final_message = (
-            f"🎉 **تخمين صحيح!** 🎉\n"
+            f"🎉 **تخمين صحيح! فائزان في هذه الجولة!** 🎉\n"
             f"الكلمة الصحيحة هي: **{correct_word}**\n"
-            f"الرسام: <a href='tg://user?id={artist_id}'>{artist_name}</a> (+1 نقطة)\n"
-            f"المخمن: <a href='tg://user?id={guesser_id}'>{guesser_name}</a> (+1 نقطة)\n\n"
-            f"--- **النتائج الحالية** ---\n"
-            f"{top_scores or 'لا توجد نقاط بعد!'}"
+            f"الرسام: {artist_mention} **(+1 نقطة)**\n"
+            f"المخمن: {guesser_mention} **(+1 نقطة)**\n"
+            f"\n{score_table}" # تضمين الجدول
         )
         
         await update.message.reply_text(final_message, parse_mode='HTML')
         
         # 6. مسح حالة اللعبة لبدء جولة جديدة
         del game_states[group_chat_id]
-        
-    # 7. معالج لعرض النتائج يدوياً
+
+# ------------------------------------
+# 7. معالج لعرض النتائج يدوياً
+# ------------------------------------
 async def show_scores(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     group_chat_id = update.message.chat_id
-    if not scores:
-        await update.message.reply_text("لا توجد نقاط مسجلة بعد. ابدأ اللعب!")
-        return
-
-    sorted_scores = sorted(scores.items(), key=lambda item: item[1], reverse=True)
-    score_list = []
     
-    for user_id, score in sorted_scores:
-        name = await get_user_name(context, user_id, group_chat_id)
-        score_list.append(f"- {name}: **{score}** نقطة")
+    current_artist = None
+    if group_chat_id in game_states:
+        current_artist = game_states[group_chat_id]['artist_id']
         
-    message = "🏆 **النتائج الحالية للعبة خمن وارسم** 🏆\n" + "\n".join(score_list)
-    await update.message.reply_text(message, parse_mode='Markdown')
+    score_table = await format_scores_table(context, group_chat_id, current_artist)
+    
+    # نستخدم Parse Mode: HTML لأن تنسيق الجدول يعتمد على ```
+    await update.message.reply_text(score_table, parse_mode='HTML') 
 
-# دالة مساعدة للحصول على اسم المستخدم
-async def get_user_name(context, user_id, chat_id):
-    try:
-        member = await context.bot.get_chat_member(chat_id, user_id)
-        return member.user.first_name
-    except:
-        return f"مستخدم غير معروف ({user_id})"
 
 # ---------------------------
 # 🚀 التشغيل
