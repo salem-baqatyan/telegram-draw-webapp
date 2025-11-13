@@ -101,7 +101,7 @@ async def webapp_data_handler(update: Update, context: ContextTypes.DEFAULT_TYPE
 
     # 1. تحليل البيانات
     # نتوقع البيانات بالصيغة: "DOODLE_DATA::[image_url]::[word]"
-    match = re.search(r"^DOODLE_DATA::(.+?)::(.+)", data, re.DOTALL)
+    match = re.search(r"^DOODLE_URL::(.+?)::(.+)", data, re.DOTALL)
     
     if match:
         image_url = match.group(1).strip()
